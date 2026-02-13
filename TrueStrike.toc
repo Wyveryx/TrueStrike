@@ -1,0 +1,45 @@
+## Interface: 120000, 120001
+## Title: TrueStrike Battle Text
+## Notes: Accurate floating combat text with confidence-based attribution
+## Author: TrueStrike Team
+## Version: 0.1.0-alpha
+## SavedVariables: TrueStrikeDB
+## OptionalDeps: Ace3, LibSharedMedia-3.0
+
+# Libraries - Load order matters
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\AceAddon-3.0\AceAddon-3.0.lua
+Libs\AceConsole-3.0\AceConsole-3.0.lua
+Libs\AceDB-3.0\AceDB-3.0.lua
+Libs\AceDBOptions-3.0\AceDBOptions-3.0.lua
+Libs\AceConfig-3.0\AceConfigRegistry-3.0.lua
+Libs\AceConfig-3.0\AceConfigDialog-3.0.lua
+Libs\AceConfig-3.0\AceConfigCmd-3.0.lua
+Libs\AceGUI-3.0\AceGUI-3.0.lua
+Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
+
+# Core - Constants and defaults before init
+Core\Constants.lua
+Core\Defaults.lua
+Core\Init.lua
+Core\Diagnostics.lua
+
+# Core (Decision / Coordination) - Skeletons
+Core\Core.lua
+Core\Incoming_Probe.lua
+Core\MinimapButton.lua
+Core\Display_Decide.lua
+Core\Cooldowns_Decide.lua
+Core\Combat_Decide.lua
+
+# Parser (Detection) - Skeletons
+Parser\Normalize.lua
+Parser\CombatLog_Detect.lua
+Parser\Cooldowns_Detect.lua
+Parser\Incoming_Detect.lua
+
+# UI - Config tabs before main config assembler
+UI\ConfigTabs.lua
+UI\Config.lua
+UI\ScrollAreaFrames.lua
