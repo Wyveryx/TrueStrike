@@ -84,6 +84,9 @@ function Addon:OnEnable()
             if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Enable then
                 TSBT.Parser.Incoming:Enable()
             end
+            if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Enable then
+                TSBT.Parser.Outgoing:Enable()
+            end
             if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Enable then
                 TSBT.Parser.CombatLog:Enable()
             end
@@ -97,6 +100,9 @@ function Addon:OnEnable()
             if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
                 TSBT.Parser.Incoming:Disable()
             end
+            if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Disable then
+                TSBT.Parser.Outgoing:Disable()
+            end
             if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Disable then
                 TSBT.Parser.Cooldowns:Disable()
             end
@@ -105,6 +111,9 @@ function Addon:OnEnable()
             end
             if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
                 TSBT.Parser.Incoming:Disable()
+            end
+            if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Disable then
+                TSBT.Parser.Outgoing:Disable()
             end
         end
 
@@ -119,6 +128,9 @@ function Addon:OnDisable()
     if TSBT.Parser then
         if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
             TSBT.Parser.Incoming:Disable()
+        end
+        if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Disable then
+            TSBT.Parser.Outgoing:Disable()
         end
         if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Disable then
             TSBT.Parser.Cooldowns:Disable()

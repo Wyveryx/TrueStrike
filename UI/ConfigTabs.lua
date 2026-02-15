@@ -1215,6 +1215,23 @@ end
 -- Outgoing damage and healing configuration.
 ------------------------------------------------------------------------
 function TSBT.BuildTab_Outgoing()
+    local function reportLine()
+        local p = TSBT.Core and TSBT.Core.OutgoingProbe
+        if not p or not p.GetStatusLine then
+            return "Outgoing probe not available."
+        end
+        local s = p:GetStatusLine() or {}
+        local cap = string.format("buffer=%d/%d", tonumber(s.bufferCount) or 0,
+                                  tonumber(s.bufferMax) or 0)
+        if s.capturing then
+            return "Outgoing probe: capturing… " .. cap
+        end
+        if s.replaying then
+            return "Outgoing probe: replaying… " .. cap
+        end
+        return "Outgoing probe: idle. " .. cap
+    end
+
     return {
         type  = "group",
         name  = "Outgoing",
@@ -1332,6 +1349,82 @@ function TSBT.BuildTab_Outgoing()
                 step    = 50,
                 get     = function() return TSBT.db.profile.outgoing.healing.minThreshold end,
                 set     = function(_, val) TSBT.db.profile.outgoing.healing.minThreshold = val end,
+            },
+
+            ----------------------------------------------------------------
+            -- UI/UX Validation Harness (Capture + Replay)
+            ----------------------------------------------------------------
+            headerProbe = {
+                type  = "header",
+                name  = "Outgoing Diagnostics (UI Test)",
+                order = 20,
+            },
+            probeReport = {
+                type  = "description",
+                name  = reportLine,
+                order = 21,
+                width = "full",
+                fontSize = "medium",
+            },
+            probeStart45 = {
+                type  = "execute",
+                name  = "Capture 45s",
+                desc  = "Capture real outgoing CLEU events for 45 seconds and emit them live.",
+                order = 22,
+                func  = function()
+                    local p = TSBT.Core and TSBT.Core.OutgoingProbe
+                    if p and p.StartCapture then p:StartCapture(45) end
+                end,
+            },
+            probeStart90 = {
+                type  = "execute",
+                name  = "Capture 90s",
+                desc  = "Longer capture to reliably observe at least one natural auto-attack crit.",
+                order = 23,
+                func  = function()
+                    local p = TSBT.Core and TSBT.Core.OutgoingProbe
+                    if p and p.StartCapture then p:StartCapture(90) end
+                end,
+            },
+            probeStop = {
+                type  = "execute",
+                name  = "Stop Capture",
+                desc  = "Stop capture early.",
+                order = 24,
+                func  = function()
+                    local p = TSBT.Core and TSBT.Core.OutgoingProbe
+                    if p and p.StopCapture then p:StopCapture(false) end
+                end,
+            },
+            probeReplay1 = {
+                type  = "execute",
+                name  = "Replay (1x)",
+                desc  = "Replay the captured sample through display routing.",
+                order = 25,
+                func  = function()
+                    local p = TSBT.Core and TSBT.Core.OutgoingProbe
+                    if p and p.Replay then p:Replay(1.0) end
+                end,
+            },
+            probeReplay2 = {
+                type  = "execute",
+                name  = "Replay (2x)",
+                desc  = "Replay faster.",
+                order = 26,
+                func  = function()
+                    local p = TSBT.Core and TSBT.Core.OutgoingProbe
+                    if p and p.Replay then p:Replay(2.0) end
+                end,
+            },
+            probeStopReplay = {
+                type  = "execute",
+                name  = "Stop Replay",
+                desc  = "Stop replay early.",
+                order = 27,
+                func  = function()
+                    local p = TSBT.Core and TSBT.Core.OutgoingProbe
+                    if p and p.StopReplay then p:StopReplay(false) end
+                end,
             },
         },
     }
