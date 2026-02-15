@@ -1,21 +1,21 @@
-# TrueStrike - Session 2026-02-15 18:10
+# TrueStrike - Session 2026-02-15 18:21
 
 ## Summary
-Updated test.txt with final test message. Minor documentation update to verify API formatting and GitHub push workflow.
+Added CHANGELOG.md for version tracking. Initial setup file to document release history and changes across addon versions.
 
 ## Changes Made
 ```
- README.md.tmp | 22 ----------------------  test.txt      |  2 +-  test.txt.bak  |  2 +-  3 files changed, 2 insertions(+), 24 deletions(-)
+ README.md.tmp | 22 ----------------------  1 file changed, 22 deletions(-)
 ```
 
 ## Files Modified
 ```
-AD README.md.tmp AM test.txt AM test.txt.bak
+ D README.md.tmp ?? CHANGELOG.md
 ```
 
 ## Session Info
-- **Branch:** session/2026-02-15-1809
-- **Timestamp:** 2026-02-15 18:10:03
+- **Branch:** session/2026-02-15-1821
+- **Timestamp:** 2026-02-15 18:21:34
 - **Version:** v0.1.0-alpha (in development)
 
 ---

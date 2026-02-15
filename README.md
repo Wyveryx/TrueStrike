@@ -1,18 +1,22 @@
-# TrueStrike Battle Text
+# TrueStrike - Session 2026-02-15 18:21
 
-## Version v0.1.1
+## Summary
+Added CHANGELOG.md for version tracking. Initial setup file to document release history and changes across addon versions.
 
-Test release - API formatting verification and GitHub workflow testing. Minor documentation updates.
+## Changes Made
+```
+ README.md.tmp | 22 ----------------------  1 file changed, 22 deletions(-)
+```
 
-## Installation
-1. Download the latest release
-2. Extract to `World of Warcraft\_retail_\Interface\AddOns\`
-3. Restart WoW
+## Files Modified
+```
+ D README.md.tmp ?? CHANGELOG.md
+```
 
-## Usage
-- `/tsbt` - Open configuration
-- Addon loads automatically in combat
+## Session Info
+- **Branch:** session/2026-02-15-1821
+- **Timestamp:** 2026-02-15 18:21:34
+- **Version:** v0.1.0-alpha (in development)
 
 ---
-**Current Version:** v0.1.1  
-**Repository:** https://github.com/Wyveryx/TrueStrike
+*This session branch contains work-in-progress changes. Merge to main when stable.*
