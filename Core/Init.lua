@@ -1,3 +1,5 @@
+--Delete this print
+print(">>> TRUESTRIKE EDITOR SYNC VERIFIED <<<")
 ------------------------------------------------------------------------
 -- TrueStrike Battle Text - Initialization
 -- Creates the addon object, registers chat commands, initializes DB.
@@ -10,6 +12,90 @@ local ADDON_NAME, TSBT = ...
 TSBT.Addon = LibStub("AceAddon-3.0"):NewAddon("TrueStrike", "AceConsole-3.0")
 
 local Addon = TSBT.Addon
+
+------------------------------------------------------------------------
+-- Combat lockdown defer state
+------------------------------------------------------------------------
+local pendingParserEnable = false
+local pendingParserDisable = false
+
+------------------------------------------------------------------------
+-- Enable/Disable parsers (with combat lockdown protection)
+------------------------------------------------------------------------
+local function EnableParsers()
+    if InCombatLockdown() then
+        pendingParserEnable = true
+        pendingParserDisable = false
+        return false -- Deferred
+    end
+ 
+    if TSBT.Parser then
+        -- Enable data processors (sets _enabled flag, no event registration)
+        if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Enable then
+            TSBT.Parser.Incoming:Enable()
+        end
+        if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Enable then
+            TSBT.Parser.Outgoing:Enable()
+        end
+        if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Enable then
+            TSBT.Parser.Cooldowns:Enable()
+        end
+ 
+        -- Enable master listener (registers COMBAT_LOG_EVENT_UNFILTERED)
+        -- This MUST be last so data processors are ready before events fire
+        if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Enable then
+            TSBT.Parser.CombatLog:Enable()
+        end
+    end
+ 
+    pendingParserEnable = false
+    return true -- Success
+end
+ 
+local function DisableParsers()
+    if InCombatLockdown() then
+        pendingParserDisable = true
+        pendingParserEnable = false
+        return false -- Deferred
+    end
+ 
+    if TSBT.Parser then
+        -- Disable master listener FIRST (stops event flow)
+        if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Disable then
+            TSBT.Parser.CombatLog:Disable()
+        end
+ 
+        -- Then disable data processors (clears _enabled flag)
+        if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
+            TSBT.Parser.Incoming:Disable()
+        end
+        if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Disable then
+            TSBT.Parser.Outgoing:Disable()
+        end
+        if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Disable then
+            TSBT.Parser.Cooldowns:Disable()
+        end
+    end
+ 
+    pendingParserDisable = false
+    return true -- Success
+end
+
+------------------------------------------------------------------------
+-- Combat lockdown watcher frame
+------------------------------------------------------------------------
+local combatFrame = CreateFrame("Frame")
+combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+combatFrame:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_REGEN_ENABLED" then
+        -- Combat ended, retry any pending operations
+        if pendingParserEnable then
+            EnableParsers()
+        elseif pendingParserDisable then
+            DisableParsers()
+        end
+    end
+end)
 
 ------------------------------------------------------------------------
 -- OnInitialize: Fires once when addon loads (before PLAYER_LOGIN)
@@ -77,69 +163,34 @@ function Addon:OnEnable()
     -- Always init core once (safe, no-op skeleton)
     if TSBT.Core and TSBT.Core.Init then TSBT.Core:Init() end
 
-    if masterEnabled then
-        if TSBT.Core and TSBT.Core.Enable then TSBT.Core:Enable() end
+    -- CRITICAL: Use PLAYER_ENTERING_WORLD to defer parser enable
+    -- This event ALWAYS fires outside combat and after all protected loading is complete
+    local enableFrame = CreateFrame("Frame")
+    enableFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    enableFrame:SetScript("OnEvent", function(self, event)
+        self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 
-        if TSBT.Parser then
-            if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Enable then
-                TSBT.Parser.Incoming:Enable()
-            end
-            if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Enable then
-                TSBT.Parser.Outgoing:Enable()
-            end
-            if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Enable then
-                TSBT.Parser.CombatLog:Enable()
-            end
-            if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Enable then
-                TSBT.Parser.Cooldowns:Enable()
-            end
-        end
-    else
-        -- Respect saved disabled state
-        if TSBT.Parser then
-            if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
-                TSBT.Parser.Incoming:Disable()
-            end
-            if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Disable then
-                TSBT.Parser.Outgoing:Disable()
-            end
-            if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Disable then
-                TSBT.Parser.Cooldowns:Disable()
-            end
-            if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Disable then
-                TSBT.Parser.CombatLog:Disable()
-            end
-            if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
-                TSBT.Parser.Incoming:Disable()
-            end
-            if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Disable then
-                TSBT.Parser.Outgoing:Disable()
-            end
-        end
+        if masterEnabled then
+            if TSBT.Core and TSBT.Core.Enable then TSBT.Core:Enable() end
 
-        if TSBT.Core and TSBT.Core.Disable then TSBT.Core:Disable() end
-    end
+            -- Enable parsers with combat lockdown protection
+            local success = EnableParsers()
+            if not success then
+                Addon:Print("In combat - TrueStrike will fully enable after combat ends.")
+            end
+        else
+            -- Respect saved disabled state
+            DisableParsers()
+            if TSBT.Core and TSBT.Core.Disable then TSBT.Core:Disable() end
+        end
+    end)
 end
 
 ------------------------------------------------------------------------
 -- OnDisable: Fires when addon is disabled
 ------------------------------------------------------------------------
 function Addon:OnDisable()
-    if TSBT.Parser then
-        if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
-            TSBT.Parser.Incoming:Disable()
-        end
-        if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Disable then
-            TSBT.Parser.Outgoing:Disable()
-        end
-        if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Disable then
-            TSBT.Parser.Cooldowns:Disable()
-        end
-        if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Disable then
-            TSBT.Parser.CombatLog:Disable()
-        end
-    end
-
+    DisableParsers()
     if TSBT.Core and TSBT.Core.Disable then TSBT.Core:Disable() end
 end
 
@@ -278,3 +329,4 @@ function Addon:HandleResetCommand()
     self.db:ResetProfile()
     self:Print("Profile reset to defaults.")
 end
+

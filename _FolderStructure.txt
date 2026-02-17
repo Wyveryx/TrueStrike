@@ -1,7 +1,15 @@
 TrueStrike
+|   CHANGELOG.md
+|   CLAUDE.md
+|   Error Resolutions.md
+|   README.md
 |   TrueStrike.toc
 |   _FolderStructure.txt
 |   
++---.claude
+|       CLAUDE.md
+|       config.json
+|       
 +---Core
 |       Combat_Decide.lua
 |       Constants.lua
@@ -13,6 +21,7 @@ TrueStrike
 |       Incoming_Probe.lua
 |       Init.lua
 |       MinimapButton.lua
+|       Outgoing_Probe.lua
 |       
 +---libs
 |   |   Ace3.lua
@@ -152,6 +161,7 @@ TrueStrike
 |       Cooldowns_Detect.lua
 |       Incoming_Detect.lua
 |       Normalize.lua
+|       Outgoing_Detect.lua
 |       
 \---UI
         Config.lua
