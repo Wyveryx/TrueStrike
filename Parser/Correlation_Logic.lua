@@ -40,14 +40,17 @@ function Logic:scoreCandidate(castState, sample)
 	local score = 0
 	local delta = abs((sample.timestamp or 0) - (castState.startedAt or 0))
 
+	-- Spell ID match (strongest signal)
 	if sample.spellId and castState.spellId and sample.spellId == castState.spellId then
 		score = score + 55
 	end
 
+	-- Target match
 	if sample.targetName and castState.targetName and sample.targetName == castState.targetName then
 		score = score + 20
 	end
 
+	-- Timing
 	if delta <= 0.10 then
 		score = score + 15
 	elseif delta <= 0.30 then
@@ -58,10 +61,19 @@ function Logic:scoreCandidate(castState, sample)
 		score = score - 20
 	end
 
+	-- Periodic penalty
 	if sample.isPeriodic then
 		score = score - 30
 	end
 
+	-- Secret Value handling: if sample has no amount, cap confidence at MEDIUM
+	if sample.isSecret then
+		if score >= 45 then return score, CONFIDENCE.MEDIUM end
+		if score >= 25 then return score, CONFIDENCE.LOW end
+		return score, CONFIDENCE.UNKNOWN
+	end
+
+	-- Normal confidence thresholds
 	if score >= 70 then return score, CONFIDENCE.HIGH end
 	if score >= 45 then return score, CONFIDENCE.MEDIUM end
 	if score >= 25 then return score, CONFIDENCE.LOW end

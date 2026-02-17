@@ -53,26 +53,44 @@ function Engine:_processSpellcast(sample)
 	StateManager:createCastState(sample.spellId, sample.spellName, sample.unit, sample.timestamp, 0.50)
 end
 
-function Engine:_processCombat(sample)
+function Engine:_processHealthDamage(sample)
 	if not sample or not CorrelationLogic or not StateManager then return end
 
 	local activeCasts = StateManager:getActiveCasts()
 	local bestCast, confidence = CorrelationLogic:findBestCast(activeCasts, sample)
-
 	if bestCast and confidence ~= CorrelationLogic.CONFIDENCE.UNKNOWN then
 		StateManager:markMatched(bestCast, sample)
 	end
 
-	-- Normalized payload expected by Core.OutgoingProbe.
-	local action = sample.action or ""
-	local isHeal = (action == "HEAL" or action == "CRITHEAL")
 	local normalized = {
-		kind = isHeal and "heal" or "damage",
+		kind = "damage",
 		amount = sample.amount,
 		spellName = bestCast and bestCast.spellName or nil,
 		spellId = bestCast and bestCast.spellId or nil,
 		targetName = sample.targetName,
 		isCrit = sample.isCrit,
+		timestamp = sample.timestamp,
+		confidence = confidence or CorrelationLogic.CONFIDENCE.UNKNOWN,
+		isPeriodic = sample.isPeriodic == true,
+	}
+
+	self:_emitOutgoing(normalized)
+end
+
+function Engine:_processHealthChangeSecret(sample)
+	if not sample or not CorrelationLogic or not StateManager then return end
+
+	sample.isSecret = true
+	local activeCasts = StateManager:getActiveCasts()
+	local bestCast, confidence = CorrelationLogic:findBestCast(activeCasts, sample)
+
+	local normalized = {
+		kind = "damage",
+		amount = nil,
+		spellName = bestCast and bestCast.spellName or nil,
+		spellId = bestCast and bestCast.spellId or nil,
+		targetName = sample.targetName,
+		isCrit = false,
 		timestamp = sample.timestamp,
 		confidence = confidence or CorrelationLogic.CONFIDENCE.UNKNOWN,
 		isPeriodic = false,
@@ -81,9 +99,8 @@ function Engine:_processCombat(sample)
 	self:_emitOutgoing(normalized)
 end
 
-function Engine:_processHealth(_) 
-	-- Reserved for health-delta heuristics and secret-value-safe fallback.
-	-- We do not do arithmetic on health here to remain WoW 12.0 compliant.
+function Engine:_processHealth(_)
+	-- General health change marker retained for future multi-signal heuristics.
 end
 
 function Engine:flushBucket()
@@ -96,8 +113,10 @@ function Engine:flushBucket()
 		if sample then
 			if sample.eventType == "SPELLCAST_SUCCEEDED" then
 				self:_processSpellcast(sample)
-			elseif sample.eventType == "UNIT_COMBAT" then
-				self:_processCombat(sample)
+			elseif sample.eventType == "HEALTH_DAMAGE" then
+				self:_processHealthDamage(sample)
+			elseif sample.eventType == "HEALTH_CHANGE_SECRET" then
+				self:_processHealthChangeSecret(sample)
 			elseif sample.eventType == "UNIT_HEALTH" then
 				self:_processHealth(sample)
 			end

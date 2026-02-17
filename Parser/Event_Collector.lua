@@ -7,9 +7,14 @@ local Collector = TSBT.Parser.EventCollector
 Collector._enabled = Collector._enabled or false
 Collector._frame = Collector._frame or nil
 Collector._sink = Collector._sink or nil
+Collector._lastHealth = Collector._lastHealth or {}
 
 local function now()
 	return (GetTime and GetTime()) or 0
+end
+
+local function isSecretValue(v)
+	return type(v) ~= "number"
 end
 
 local function safeUnitName(unit)
@@ -30,6 +35,20 @@ function Collector:setSink(fn)
 	self._sink = fn
 end
 
+--[[
+WoW 12.0 Outgoing Damage Detection Strategy:
+
+Since COMBAT_LOG_EVENT_UNFILTERED is protected, we use correlation:
+1. UNIT_SPELLCAST_SUCCEEDED - captures when player finishes a cast
+2. UNIT_HEALTH - detects health changes on target
+3. Correlation engine matches cast → health drop → emits damage event
+
+Limitations:
+- In instances/M+/raids, UnitHealth() returns "Secret Values" (userdata)
+- Cannot calculate damage deltas in restricted content
+- Falls back to confidence=UNKNOWN/LOW in those cases
+]]
+
 function Collector:handleSpellcastSucceeded(unit, _, spellId)
 	if unit ~= "player" then return end
 	if not spellId then return end
@@ -44,34 +63,46 @@ function Collector:handleSpellcastSucceeded(unit, _, spellId)
 	})
 end
 
-function Collector:handleUnitCombat(unit, action, amount, school, _, _, _, critical)
-	if unit ~= "target" and unit ~= "mouseover" and unit ~= "nameplate1" then
-		return
-	end
-
-	if action ~= "WOUND" and action ~= "DAMAGE" and action ~= "HEAL" and action ~= "CRITHEAL" and action ~= "CRIT" then
-		return
-	end
-
-	emit("UNIT_COMBAT", {
-		timestamp = now(),
-		unit = unit,
-		action = action,
-		amount = amount,
-		school = school,
-		isCrit = (critical == true) or action == "CRIT" or action == "CRITHEAL",
-		targetName = safeUnitName(unit),
-	})
-end
-
 function Collector:handleUnitHealth(unit)
 	if unit ~= "target" and unit ~= "mouseover" and unit ~= "player" then return end
 
-	-- WoW 12.0 Secret Value note:
-	-- UnitHealth/UnitHealthMax may return userdata in restricted contexts.
-	-- We pass values through untouched and never perform arithmetic here.
 	local health = UnitHealth and UnitHealth(unit) or nil
 	local healthMax = UnitHealthMax and UnitHealthMax(unit) or nil
+
+	-- WoW 12.0 Secret Value detection
+	if isSecretValue(health) or isSecretValue(healthMax) then
+		-- In restricted content (instances/M+/raids), health values are userdata
+		-- We cannot calculate damage deltas, but can still signal a health change
+		emit("HEALTH_CHANGE_SECRET", {
+			timestamp = now(),
+			unit = unit,
+			targetName = safeUnitName(unit),
+			isSecret = true,
+		})
+		return
+	end
+
+	-- Normal case: we have numeric health values
+	-- Calculate damage as health decrease
+	local oldHealth = self._lastHealth[unit] or health
+	local damage = oldHealth - health
+
+	-- Store current health for next comparison
+	self._lastHealth[unit] = health
+
+	-- Only emit if health decreased (damage occurred)
+	if damage > 0 then
+		emit("HEALTH_DAMAGE", {
+			timestamp = now(),
+			unit = unit,
+			amount = damage,
+			targetName = safeUnitName(unit),
+			health = health,
+			healthMax = healthMax,
+		})
+	end
+
+	-- Also emit general health change for correlation engine
 	emit("UNIT_HEALTH", {
 		timestamp = now(),
 		unit = unit,
@@ -89,8 +120,6 @@ function Collector:Enable()
 		self._frame:SetScript("OnEvent", function(_, event, ...)
 			if event == "UNIT_SPELLCAST_SUCCEEDED" then
 				Collector:handleSpellcastSucceeded(...)
-			elseif event == "UNIT_COMBAT" then
-				Collector:handleUnitCombat(...)
 			elseif event == "UNIT_HEALTH" then
 				Collector:handleUnitHealth(...)
 			end
@@ -98,7 +127,6 @@ function Collector:Enable()
 	end
 
 	self._frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-	self._frame:RegisterEvent("UNIT_COMBAT")
 	self._frame:RegisterEvent("UNIT_HEALTH")
 	self._enabled = true
 end
@@ -107,8 +135,8 @@ function Collector:Disable()
 	if not self._enabled then return end
 	if self._frame then
 		self._frame:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-		self._frame:UnregisterEvent("UNIT_COMBAT")
 		self._frame:UnregisterEvent("UNIT_HEALTH")
 	end
 	self._enabled = false
+	self._lastHealth = {}
 end
