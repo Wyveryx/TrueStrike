@@ -82,20 +82,34 @@ function Collector:handleUnitHealth(unit)
 		return
 	end
 
-	-- Normal case: we have numeric health values
-	-- Calculate damage as health decrease
-	local oldHealth = self._lastHealth[unit] or health
-	local damage = oldHealth - health
+	-- Check if we've seen this unit before
+	local oldHealth = self._lastHealth[unit]
+	if not oldHealth then
+		-- First time seeing this unit - just store health, don't emit damage yet
+		self._lastHealth[unit] = health
+		return
+	end
 
-	-- Store current health for next comparison
+	-- Calculate health change (positive = damage, negative = healing)
+	local delta = oldHealth - health
 	self._lastHealth[unit] = health
 
-	-- Only emit if health decreased (damage occurred)
-	if damage > 0 then
+	-- Emit damage if health decreased
+	if delta > 0 then
 		emit("HEALTH_DAMAGE", {
 			timestamp = now(),
 			unit = unit,
-			amount = damage,
+			amount = delta,
+			targetName = safeUnitName(unit),
+			health = health,
+			healthMax = healthMax,
+		})
+	-- Emit healing if health increased
+	elseif delta < 0 then
+		emit("HEALTH_HEAL", {
+			timestamp = now(),
+			unit = unit,
+			amount = -delta,
 			targetName = safeUnitName(unit),
 			health = health,
 			healthMax = healthMax,

@@ -77,6 +77,30 @@ function Engine:_processHealthDamage(sample)
 	self:_emitOutgoing(normalized)
 end
 
+function Engine:_processHealthHeal(sample)
+	if not sample or not CorrelationLogic or not StateManager then return end
+
+	local activeCasts = StateManager:getActiveCasts()
+	local bestCast, confidence = CorrelationLogic:findBestCast(activeCasts, sample)
+
+	if bestCast and confidence ~= CorrelationLogic.CONFIDENCE.UNKNOWN then
+		StateManager:markMatched(bestCast, sample)
+	end
+
+	local normalized = {
+		kind = "heal",
+		amount = sample.amount,
+		spellName = bestCast and bestCast.spellName or nil,
+		spellId = bestCast and bestCast.spellId or nil,
+		targetName = sample.targetName,
+		isCrit = sample.isCrit,
+		timestamp = sample.timestamp,
+		confidence = confidence or CorrelationLogic.CONFIDENCE.UNKNOWN,
+	}
+
+	self:_emitOutgoing(normalized)
+end
+
 function Engine:_processHealthChangeSecret(sample)
 	if not sample or not CorrelationLogic or not StateManager then return end
 
@@ -115,6 +139,8 @@ function Engine:flushBucket()
 				self:_processSpellcast(sample)
 			elseif sample.eventType == "HEALTH_DAMAGE" then
 				self:_processHealthDamage(sample)
+			elseif sample.eventType == "HEALTH_HEAL" then
+				self:_processHealthHeal(sample)
 			elseif sample.eventType == "HEALTH_CHANGE_SECRET" then
 				self:_processHealthChangeSecret(sample)
 			elseif sample.eventType == "UNIT_HEALTH" then
