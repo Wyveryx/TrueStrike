@@ -1,14 +1,5 @@
 ------------------------------------------------------------------------
--- TrueStrike Battle Text - Combat Log Coordinator
--- WoW 12.0 COMPATIBILITY: COMBAT_LOG_EVENT_UNFILTERED is PROTECTED
-------------------------------------------------------------------------
--- CRITICAL: As of WoW 12.0 (Midnight), COMBAT_LOG_EVENT_UNFILTERED is
--- a protected event that CANNOT be registered by addons, even in Enable().
--- 
--- SOLUTION: Each parser (Incoming_Detect, Outgoing_Detect) now registers
--- its own alternative events instead of using a centralized listener.
---
--- This file exists only for coordination and backward compatibility.
+-- TrueStrike Battle Text - Parser Coordinator (WoW 12.0)
 ------------------------------------------------------------------------
 local ADDON_NAME, TSBT = ...
 
@@ -16,26 +7,46 @@ TSBT.Parser = TSBT.Parser or {}
 TSBT.Parser.CombatLog = TSBT.Parser.CombatLog or {}
 local CombatLog = TSBT.Parser.CombatLog
 
--- Initialize as disabled
-CombatLog._enabled = false
+CombatLog._enabled = CombatLog._enabled or false
 
-------------------------------------------------------------------------
--- Enable/Disable - Coordination Only
-------------------------------------------------------------------------
--- These methods exist for compatibility with Init.lua's EnableParsers()
--- The actual event registration happens in individual parser modules.
-------------------------------------------------------------------------
+local function wireCollectorToEngine()
+	local collector = TSBT.Parser and TSBT.Parser.EventCollector
+	local engine = TSBT.Parser and TSBT.Parser.PulseEngine
+	if collector and engine and collector.setSink then
+		collector:setSink(function(eventType, payload)
+			engine:collect(eventType, payload)
+		end)
+	end
+end
+
 function CombatLog:Enable()
-	print(">>> COMBAT LOG COORDINATOR ENABLED (WoW 12.0 MODE) <<<")
-	print("    Individual parsers will register their own events")
+	if self._enabled then return end
 	self._enabled = true
-	
-	-- Parsers will handle their own event registration:
-	-- - Incoming_Detect: Uses UNIT_COMBAT (not protected)
-	-- - Outgoing_Detect: Will need alternative implementation
+
+	wireCollectorToEngine()
+
+	local engine = TSBT.Parser and TSBT.Parser.PulseEngine
+	if engine and engine.Enable then
+		engine:Enable()
+	end
+
+	local collector = TSBT.Parser and TSBT.Parser.EventCollector
+	if collector and collector.Enable then
+		collector:Enable()
+	end
 end
 
 function CombatLog:Disable()
-	print(">>> COMBAT LOG COORDINATOR DISABLED <<<")
+	if not self._enabled then return end
 	self._enabled = false
+
+	local collector = TSBT.Parser and TSBT.Parser.EventCollector
+	if collector and collector.Disable then
+		collector:Disable()
+	end
+
+	local engine = TSBT.Parser and TSBT.Parser.PulseEngine
+	if engine and engine.Disable then
+		engine:Disable()
+	end
 end

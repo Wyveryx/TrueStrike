@@ -40,6 +40,10 @@ Parser\CombatLog_Detect.lua
 Parser\Cooldowns_Detect.lua
 Parser\Incoming_Detect.lua
 Parser\Outgoing_Detect.lua
+Parser\State_Manager.lua
+Parser\Correlation_Logic.lua
+Parser\Event_Collector.lua
+Parser\Pulse_Engine.lua
 
 # UI - Config tabs before main config assembler
 UI\ConfigTabs.lua
