@@ -145,6 +145,19 @@ function Engine:flushBucket()
 				self:_processHealthChangeSecret(sample)
 			elseif sample.eventType == "UNIT_HEALTH" then
 				self:_processHealth(sample)
+			elseif sample.eventType == "SELF_HEAL_TEXT" then
+				self:_emitOutgoing({
+					kind = "heal",
+					amount = nil,
+					amountText = sample.amountText,
+					spellName = sample.spellName,
+					spellId = nil,
+					targetName = nil,
+					isCrit = sample.isCrit,
+					timestamp = sample.timestamp,
+					confidence = CorrelationLogic and CorrelationLogic.CONFIDENCE and CorrelationLogic.CONFIDENCE.HIGH or "HIGH",
+					isPeriodic = false,
+				})
 			end
 		end
 	end
