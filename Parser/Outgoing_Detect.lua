@@ -37,6 +37,7 @@ function Outgoing:ProcessEvent(info)
 	local ev = {
 		kind = kind,
 		amount = info.amount,
+		amountText = info.amountText,
 		spellName = info.spellName,
 		spellId = info.spellId,
 		targetName = info.targetName,
