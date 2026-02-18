@@ -84,10 +84,7 @@ function Collector:handleCombatTextUpdate(arg1)
 	if not (C_CombatText and C_CombatText.GetCurrentEventInfo) then return end
 	if not HEAL_EVENT_TYPES[arg1] then return end
 
-	local data, arg3 = C_CombatText.GetCurrentEventInfo()
-	local playerName = UnitName and UnitName("player") or nil
-	if type(playerName) ~= "string" or playerName == "" then return end
-	if type(data) ~= "string" or data ~= playerName then return end
+	local _, arg3 = C_CombatText.GetCurrentEventInfo()
 	if arg3 == nil then return end
 
 	local spellName = self._lastPlayerSpellName
