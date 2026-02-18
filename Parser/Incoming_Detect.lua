@@ -9,6 +9,91 @@ local function Debug(level, ...)
         TSBT.Debug(level, ...)
     end
 end
+
+-- ============================================================
+-- Incoming Spell Attribution State
+-- ============================================================
+local SPELL_EXPIRE = 2.0
+local MAX_PENDING_SPELLS = 5
+local pendingSpells = {}
+local incomingFrame = CreateFrame("Frame")
+
+-- ============================================================
+-- Pending Queue Helpers
+-- ============================================================
+local function PrunePendingSpells(now)
+    -- Remove stale entries outside the spell correlation window.
+    local i = 1
+    while i <= #pendingSpells do
+        local entry = pendingSpells[i]
+        if (now - entry.time) > SPELL_EXPIRE then
+            table.remove(pendingSpells, i)
+        else
+            i = i + 1
+        end
+    end
+end
+
+local function PushPendingSpell(spellID)
+    local spellInfo = C_Spell.GetSpellInfo(spellID)
+    if not spellInfo then return end
+
+    -- Store spell cast metadata for upcoming UNIT_COMBAT damage correlation.
+    pendingSpells[#pendingSpells + 1] = {
+        spellID = spellID,
+        name = spellInfo.name,
+        icon = spellInfo.iconID,
+        time = GetTime(),
+    }
+
+    -- Keep queue bounded to avoid memory bloat.
+    while #pendingSpells > MAX_PENDING_SPELLS do
+        table.remove(pendingSpells, 1)
+    end
+end
+
+local function AttachPendingSpell(ev, now)
+    local bestIndex
+    local bestDelta
+
+    -- Find the closest recent spell cast inside the attribution window.
+    for i = #pendingSpells, 1, -1 do
+        local entry = pendingSpells[i]
+        local delta = now - entry.time
+        if delta >= 0 and delta <= SPELL_EXPIRE then
+            if not bestDelta or delta < bestDelta then
+                bestDelta = delta
+                bestIndex = i
+            end
+        end
+    end
+
+    if not bestIndex then return end
+
+    local match = pendingSpells[bestIndex]
+    ev.spellID = match.spellID
+    ev.spellName = match.name
+    ev.spellIcon = match.icon
+    table.remove(pendingSpells, bestIndex)
+end
+
+-- ============================================================
+-- UNIT_SPELLCAST_SUCCEEDED Listener
+-- ============================================================
+incomingFrame:SetScript("OnEvent", function(_, event, unit, _, spellID)
+    if event ~= "UNIT_SPELLCAST_SUCCEEDED" then return end
+    if not Incoming._enabled then return end
+
+    -- Capture hostile casts from target and nameplates only.
+    if unit ~= "target" and not (unit and unit:match("^nameplate")) then return end
+    if not UnitCanAttack("player", unit) then return end
+    if not spellID then return end
+
+    -- Prune old entries on every cast before inserting fresh metadata.
+    local now = GetTime()
+    PrunePendingSpells(now)
+    PushPendingSpell(spellID)
+end)
 ------------------------------------------------------------------------
 -- WoW 12.0 Midnight Compliance: Named Key Access Only
 ------------------------------------------------------------------------
@@ -19,6 +104,8 @@ end
 -- ✗ REMOVED: Numeric comparisons, amount fallbacks
 
 function Incoming:ProcessEvent(info)
+    if not self._enabled then return end
+
     -- WoW 12.0: Use named keys instead of positional indexing
     local timestamp = info.timestamp
     local subevent = info.subEvent
@@ -52,11 +139,23 @@ function Incoming:ProcessEvent(info)
         return
     end
 
+    -- Correlate recent hostile casts to incoming direct damage events.
+    if ev.kind == "damage" then
+        AttachPendingSpell(ev, GetTime())
+    end
+
     local probe = TSBT.Core and TSBT.Core.IncomingProbe
     if probe and probe.OnIncomingDetected then
         probe:OnIncomingDetected(ev)
     end
 end
 -- Incoming is now managed by CombatLog_Detect.lua
-function Incoming:Enable() self._enabled = true end
-function Incoming:Disable() self._enabled = false end
+function Incoming:Enable()
+    self._enabled = true
+    incomingFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+end
+
+function Incoming:Disable()
+    self._enabled = false
+    incomingFrame:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+end
