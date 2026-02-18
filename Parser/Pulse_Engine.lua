@@ -46,6 +46,13 @@ function Engine:_emitOutgoing(ev)
 	end
 end
 
+function Engine:_emitIncoming(ev)
+	local parser = TSBT.Parser and TSBT.Parser.Incoming
+	if parser and parser.ProcessEvent then
+		parser:ProcessEvent(ev)
+	end
+end
+
 function Engine:_processSpellcast(sample)
 	if not StateManager then return end
 	if not sample then return end
@@ -74,7 +81,11 @@ function Engine:_processHealthDamage(sample)
 		isPeriodic = sample.isPeriodic == true,
 	}
 
-	self:_emitOutgoing(normalized)
+	if sample.unit == "player" then
+		self:_emitIncoming(normalized)
+	else
+		self:_emitOutgoing(normalized)
+	end
 end
 
 function Engine:_processHealthHeal(sample)
@@ -98,7 +109,11 @@ function Engine:_processHealthHeal(sample)
 		confidence = confidence or CorrelationLogic.CONFIDENCE.UNKNOWN,
 	}
 
-	self:_emitOutgoing(normalized)
+	if sample.unit == "player" then
+		self:_emitIncoming(normalized)
+	else
+		self:_emitOutgoing(normalized)
+	end
 end
 
 function Engine:_processHealthChangeSecret(sample)
@@ -120,7 +135,11 @@ function Engine:_processHealthChangeSecret(sample)
 		isPeriodic = false,
 	}
 
-	self:_emitOutgoing(normalized)
+	if sample.unit == "player" then
+		self:_emitIncoming(normalized)
+	else
+		self:_emitOutgoing(normalized)
+	end
 end
 
 function Engine:_processHealth(_)
@@ -157,6 +176,19 @@ function Engine:flushBucket()
 					timestamp = sample.timestamp,
 					confidence = CorrelationLogic and CorrelationLogic.CONFIDENCE and CorrelationLogic.CONFIDENCE.HIGH or "HIGH",
 					isPeriodic = false,
+				})
+			elseif sample.eventType == "INCOMING_HEAL_TEXT" then
+				self:_emitIncoming({
+					kind = "heal",
+					amount = nil,
+					amountText = sample.amountText,
+					spellName = nil,
+					spellId = nil,
+					targetName = sample.targetName,
+					isCrit = sample.isCrit,
+					timestamp = sample.timestamp,
+					confidence = CorrelationLogic and CorrelationLogic.CONFIDENCE and CorrelationLogic.CONFIDENCE.HIGH or "HIGH",
+					isPeriodic = sample.isPeriodic == true,
 				})
 			end
 		end
