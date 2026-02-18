@@ -10,53 +10,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **WoW 12.0 Midnight Compliance**: Secret Values-aware combat log processing
-- CombatLogGetCurrentEventInfo() returns table with named keys (WoW 12.0 behavior)
-- Named key access for combat log info table (info.amount, info.subEvent, etc.)
-- Combat lockdown protection for parser enable/disable operations
-- PLAYER_ENTERING_WORLD event-based parser initialization (always fires outside combat)
-- Frame creation at module load time to avoid taint during protected loading
-- Incoming damage/healing detection via UNIT_COMBAT event
-- Outgoing damage/healing detection via COMBAT_LOG_EVENT_UNFILTERED
-- Event normalization for incoming and outgoing combat events
-- Support for auto-attack detection and filtering modes
-- Critical strike detection for damage and healing events
-- Overheal tracking for healing events
-- Error Resolutions.md documentation for troubleshooting common issues
+- _No unreleased changes yet._
+
+---
+
+## [0.3.0] - 2026-02-17
+
+### Added
+- Pulse-based outgoing event correlation scaffold for combat text processing.
+- Health-delta bootstrap and heal pulse routing support.
+- Fall damage detection in parser event collection.
+- Incoming spellcast queue correlation for better damage attribution.
 
 ### Changed
-- **BREAKING (WoW 12.0)**: CombatLog_Detect.lua uses CombatLogGetCurrentEventInfo() with named keys
-- **BREAKING (WoW 12.0)**: Outgoing_Detect.lua uses named keys instead of positional indexing
-- **BREAKING (WoW 12.0)**: Incoming_Detect.lua uses named keys instead of positional indexing
-- **BREAKING (WoW 12.0)**: Removed all tonumber() calls on Secret Values (info.amount, info.critical)
-- **BREAKING (WoW 12.0)**: Removed numeric comparisons and math on damage/heal amounts
-- **BREAKING (WoW 12.0)**: Removed overheal zeroing logic (Secret Value manipulation)
-- Parser modules now respect InCombatLockdown() for safe event registration
-- Moved frame creation from Enable() methods to module load scope
-- Init.lua uses PLAYER_ENTERING_WORLD instead of OnUpdate for parser enable
-- Incoming_Detect.lua event handler setup moved to module load time
-- Combat log event handler signature: function(self, event, info) instead of varargs
+- Outgoing damage detection now uses `UNIT_HEALTH` correlation instead of `UNIT_COMBAT`.
+- Self-healing events now pass through combat text event plumbing.
 
 ### Fixed
-- **WoW 12.0 Midnight compatibility** - Uses standard RegisterEvent (SecureFrameTemplate not needed)
-- **Secret Values violations** - removed all arithmetic/comparisons on info.amount and info.critical
-- Combat lockdown taint errors when enabling parsers during combat
-- Bazooka addon compatibility - frames created at module load, not in Enable()
-- Parser enable/disable race conditions during combat state changes
-- ADDON_ACTION_FORBIDDEN errors from RegisterEvent during protected loading
+- Removed secret-string comparison in combat text heal handler to avoid invalid value checks.
 
-### Deprecated
-- **Positional unpacking** of combat log info table (use named keys instead)
-- **tonumber() on Secret Values** - Blizzard now returns display-ready values
-- **Numeric gating on amounts** - moved responsibility to display layer
-
-### Technical Debt
-- Display layer (ScrollAreaFrames.lua) must handle Secret Values properly:
-  - Pass info.amount directly to text objects without manipulation
-  - Use info.critical for truthy checks only (no numeric comparison)
-  - Implement overheal hiding via formatting/visibility, not value zeroing
-- If visual scaling by amount needed, user must provide C_CurveUtil implementation
-- Consider server-side damage meter API as future enhancement for cross-player data
+### Merged Pull Requests (Complete History to Date)
+- **#1** (2026-02-16) `design-pulse-based-event-correlation-engine-162ov9`
+  - `ca9b0a7` Add pulse-based outgoing correlation engine scaffold.
+  - `f02924c` Fix outgoing damage detection by switching to `UNIT_HEALTH` correlation.
+  - `18fa9c0` Fix health-delta bootstrap and add health-heal pulse routing.
+- **#2** (2026-02-17) `implement-self-healing-display-in-truestrike`
+  - `df37324` Add self-heal passthrough via combat text events.
+  - `2c1a890` Remove secret-string compare from combat text heal handler.
+- **#3** (2026-02-17) `implement-fall-damage-detection-in-parser/event_collector.lu`
+  - `957799e` Add fall damage detection to event collector.
+- **#4** (2026-02-17) `add-spell-damage-attribution-to-incoming_detect`
+  - `3b33f31` Add incoming spellcast queue correlation for damage attribution.
 
 ---
 
@@ -94,4 +78,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Notes
 - Most parser and core modules are skeletal implementations
 - UI framework established but combat text display needs implementation
-
