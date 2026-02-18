@@ -138,6 +138,15 @@ function Collector:handleCombatTextUpdate(arg1)
 		amountText = tostring(arg3),
 		isCrit = arg1 == "HEAL_CRIT" or arg1 == "PERIODIC_HEAL_CRIT",
 	})
+
+	-- Incoming healing for the player uses combat text events as a non-UNIT_COMBAT path.
+	emit("INCOMING_HEAL_TEXT", {
+		timestamp = now(),
+		targetName = safeUnitName("player"),
+		amountText = tostring(arg3),
+		isCrit = arg1 == "HEAL_CRIT" or arg1 == "PERIODIC_HEAL_CRIT",
+		isPeriodic = arg1 == "PERIODIC_HEAL" or arg1 == "PERIODIC_HEAL_CRIT",
+	})
 end
 
 --==================================--
