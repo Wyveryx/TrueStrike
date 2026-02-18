@@ -8,6 +8,7 @@ Collector._enabled = Collector._enabled or false
 Collector._frame = Collector._frame or nil
 Collector._sink = Collector._sink or nil
 Collector._lastHealth = Collector._lastHealth or {}
+Collector._lastPlayerSpellName = Collector._lastPlayerSpellName or nil
 
 local function now()
 	return (GetTime and GetTime()) or 0
@@ -53,13 +54,49 @@ function Collector:handleSpellcastSucceeded(unit, _, spellId)
 	if unit ~= "player" then return end
 	if not spellId then return end
 
-	local spellName = (GetSpellInfo and GetSpellInfo(spellId)) or nil
+	local spellName = nil
+	if C_Spell and C_Spell.GetSpellName then
+		spellName = C_Spell.GetSpellName(spellId)
+	end
+	if not spellName and GetSpellInfo then
+		spellName = GetSpellInfo(spellId)
+	end
+
+	self._lastPlayerSpellName = spellName
+
 	emit("SPELLCAST_SUCCEEDED", {
 		timestamp = now(),
 		unit = unit,
 		spellId = spellId,
 		spellName = spellName,
 		targetName = safeUnitName("target"),
+	})
+end
+
+local HEAL_EVENT_TYPES = {
+	HEAL = true,
+	HEAL_CRIT = true,
+	PERIODIC_HEAL = true,
+	PERIODIC_HEAL_CRIT = true,
+}
+
+function Collector:handleCombatTextUpdate(arg1)
+	if not (C_CombatText and C_CombatText.GetCurrentEventInfo) then return end
+	if not HEAL_EVENT_TYPES[arg1] then return end
+
+	local _, arg3 = C_CombatText.GetCurrentEventInfo()
+	if arg3 == nil then return end
+
+	local spellName = self._lastPlayerSpellName
+	if type(spellName) ~= "string" or spellName == "" then
+		spellName = "Heal"
+	end
+
+	emit("SELF_HEAL_TEXT", {
+		timestamp = now(),
+		spellName = spellName,
+		amountText = tostring(arg3),
+		isCrit = arg1 == "HEAL_CRIT" or arg1 == "PERIODIC_HEAL_CRIT",
 	})
 end
 
@@ -136,12 +173,15 @@ function Collector:Enable()
 				Collector:handleSpellcastSucceeded(...)
 			elseif event == "UNIT_HEALTH" then
 				Collector:handleUnitHealth(...)
+			elseif event == "COMBAT_TEXT_UPDATE" then
+				Collector:handleCombatTextUpdate(...)
 			end
 		end)
 	end
 
 	self._frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 	self._frame:RegisterEvent("UNIT_HEALTH")
+	self._frame:RegisterEvent("COMBAT_TEXT_UPDATE")
 	self._enabled = true
 end
 
@@ -150,7 +190,9 @@ function Collector:Disable()
 	if self._frame then
 		self._frame:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 		self._frame:UnregisterEvent("UNIT_HEALTH")
+		self._frame:UnregisterEvent("COMBAT_TEXT_UPDATE")
 	end
 	self._enabled = false
 	self._lastHealth = {}
+	self._lastPlayerSpellName = nil
 end

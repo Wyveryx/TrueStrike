@@ -204,9 +204,9 @@ function Probe:ProcessOutgoingEvent(evt, isReplay)
     if kind ~= "damage" and kind ~= "heal" then return end
 
     local amt = tonumber(evt.amount) or 0
-    if amt <= 0 then return end
 
     if kind == "damage" then
+        if amt <= 0 then return end
         local conf = prof.damage
         if not conf or not conf.enabled then return end
 
@@ -251,28 +251,37 @@ function Probe:ProcessOutgoingEvent(evt, isReplay)
         local conf = prof.healing
         if not conf or not conf.enabled then return end
 
-        local over = tonumber(evt.overheal) or 0
-        if over < 0 then over = 0 end
-
-        -- What we display is what we threshold against.
-        local displayAmt = amt
-        if not conf.showOverheal then
-            displayAmt = amt - over
-        end
-        if displayAmt <= 0 then return end
-
-        local minT = tonumber(conf.minThreshold) or 0
-        if displayAmt < minT then return end
-
         local area = conf.scrollArea or "Outgoing"
-        local text = tostring(math.floor(displayAmt + 0.5))
+        local text
 
-        if prof.showSpellNames and type(evt.spellName) == "string" and evt.spellName ~= "" then
-            text = text .. " " .. evt.spellName
-        end
+        if type(evt.amountText) == "string" and evt.amountText ~= "" then
+            local spellName = (type(evt.spellName) == "string" and evt.spellName ~= "") and evt.spellName or "Heal"
+            text = spellName .. ": " .. evt.amountText
+        else
+            if amt <= 0 then return end
 
-        if conf.showOverheal and over > 0 then
-            text = text .. " (OH " .. tostring(math.floor(over + 0.5)) .. ")"
+            local over = tonumber(evt.overheal) or 0
+            if over < 0 then over = 0 end
+
+            -- What we display is what we threshold against.
+            local displayAmt = amt
+            if not conf.showOverheal then
+                displayAmt = amt - over
+            end
+            if displayAmt <= 0 then return end
+
+            local minT = tonumber(conf.minThreshold) or 0
+            if displayAmt < minT then return end
+
+            text = tostring(math.floor(displayAmt + 0.5))
+
+            if prof.showSpellNames and type(evt.spellName) == "string" and evt.spellName ~= "" then
+                text = text .. " " .. evt.spellName
+            end
+
+            if conf.showOverheal and over > 0 then
+                text = text .. " (OH " .. tostring(math.floor(over + 0.5)) .. ")"
+            end
         end
 
         local color = {r = 0.20, g = 1.00, b = 0.20}
