@@ -105,38 +105,67 @@ end)
 
 function Incoming:ProcessEvent(info)
     if not self._enabled then return end
-
-    -- WoW 12.0: Use named keys instead of positional indexing
-    local timestamp = info.timestamp
-    local subevent = info.subEvent
-    local destGUID = info.destGUID
-
-    -- Ensure we are only looking at events affecting the player
-    if destGUID ~= UnitGUID("player") then return end
+    if not info or type(info) ~= "table" then return end
 
     local db = TSBT.db and TSBT.db.profile
-    if not db or not db.incoming or not db.incoming.damage then return end
+    if not db or not db.incoming then return end
 
-    local ev = {
-        timestamp  = timestamp,
-        targetName = UnitName("player"),
-    }
+    local ev = nil
 
-    -- Basic categorization
-    if subevent:find("_DAMAGE") then
-        if not db.incoming.damage.enabled then return end
-        ev.kind = "damage"
-        ev.amount = info.amount          -- Secret Value: display only (no tonumber, no fallback)
-        ev.schoolMask = info.school      -- Safe: non-secret
-        ev.isCrit = info.critical        -- Secret Value: truthy check only
+    -- Pulse engine normalized path.
+    if info.kind == "damage" or info.kind == "heal" then
+        if info.kind == "damage" then
+            if not (db.incoming.damage and db.incoming.damage.enabled) then return end
+        else
+            if not (db.incoming.healing and db.incoming.healing.enabled) then return end
+        end
 
-    elseif subevent:find("_HEAL") then
-        if not (db.incoming.healing and db.incoming.healing.enabled) then return end
-        ev.kind = "heal"
-        ev.amount = info.amount          -- Secret Value: display only (no tonumber, no fallback)
-        ev.isCrit = info.critical        -- Secret Value: truthy check only
+        ev = {
+            kind = info.kind,
+            amount = info.amount,
+            amountText = info.amountText,
+            spellID = info.spellId,
+            spellName = info.spellName,
+            spellIcon = info.spellIcon,
+            schoolMask = info.schoolMask,
+            isCrit = info.isCrit,
+            isPeriodic = info.isPeriodic == true,
+            timestamp = info.timestamp,
+            targetName = info.targetName or UnitName("player"),
+            confidence = info.confidence,
+        }
+
+    -- Legacy combat-log shaped payload path.
     else
-        return
+        local timestamp = info.timestamp
+        local subevent = info.subEvent
+        local destGUID = info.destGUID
+
+        -- Ensure we are only looking at events affecting the player
+        if destGUID ~= UnitGUID("player") then return end
+        if type(subevent) ~= "string" then return end
+
+        ev = {
+            timestamp  = timestamp,
+            targetName = UnitName("player"),
+        }
+
+        -- Basic categorization
+        if subevent:find("_DAMAGE") then
+            if not (db.incoming.damage and db.incoming.damage.enabled) then return end
+            ev.kind = "damage"
+            ev.amount = info.amount          -- Secret Value: display only (no tonumber, no fallback)
+            ev.schoolMask = info.school      -- Safe: non-secret
+            ev.isCrit = info.critical        -- Secret Value: truthy check only
+
+        elseif subevent:find("_HEAL") then
+            if not (db.incoming.healing and db.incoming.healing.enabled) then return end
+            ev.kind = "heal"
+            ev.amount = info.amount          -- Secret Value: display only (no tonumber, no fallback)
+            ev.isCrit = info.critical        -- Secret Value: truthy check only
+        else
+            return
+        end
     end
 
     -- Correlate recent hostile casts to incoming direct damage events.

@@ -44,21 +44,24 @@ function Core:ApplyBlizzardFCTCVars()
 
     local function trySet(name, value)
         if type(SetCVar) ~= "function" or type(GetCVar) ~= "function" then
-            if Addon and Addon.Print then
-                Addon:Print(("CVar API unavailable; cannot set %s."):format(name))
-            end
+            return -- CVar API unavailable
+        end
+
+        -- Check if CVar exists first (returns nil if CVar doesn't exist)
+        local before = GetCVar(name)
+        if before == nil then
+            -- CVar doesn't exist on this client version (WoW 12.0 removed some)
+            -- Silently skip - no point warning about removed CVars
             return
         end
 
         local ok = pcall(SetCVar, name, value)
         local after = GetCVar(name)
 
-        -- If Blizzard ignores it, warn once per click (good enough for now).
-        if not ok or tostring(after) ~= tostring(value) then
+        -- Only warn if CVar exists but has wrong value (Blizzard locked it)
+        if not ok or (after ~= nil and tostring(after) ~= tostring(value)) then
             if Addon and Addon.Print then
-                Addon:Print(("Attempted to set %s=%s, but client reports %s. Blizzard may be ignoring/locking this CVar."):format(
-                    name, tostring(value), tostring(after)
-                ))
+                Addon:Print(("CVar %s is locked by Blizzard - cannot change."):format(name))
             end
         end
     end

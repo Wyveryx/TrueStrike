@@ -112,6 +112,26 @@ function TSBT.BuildTab_General()
                     LibStub("AceConfigRegistry-3.0"):NotifyChange("TrueStrike")
                 end,
             },
+            disableBlizzardFCT = {
+                type  = "toggle",
+                name  = "Disable Blizzard's Combat Text",
+                desc  = "Hide Blizzard's default floating combat text to prevent duplicate numbers.\n\n" ..
+                        "|cFFFFFF00Note:|r This setting takes effect immediately. " ..
+                        "TrueStrike's display will still work.",
+                width = "full",
+                order = 4,
+                get   = function() return TSBT.db.profile.general.disableBlizzardFCT end,
+                set   = function(_, val)
+                    TSBT.db.profile.general.disableBlizzardFCT = val
+                    -- Apply CVar change immediately
+                    if val then
+                        SetCVar("enableFloatingCombatText", "0")
+                    else
+                        SetCVar("enableFloatingCombatText", "1")
+                    end
+                    LibStub("AceConfigRegistry-3.0"):NotifyChange("TrueStrike")
+                end,
+            },
 
             headerFont = {
                 type  = "header",
@@ -858,10 +878,10 @@ function TSBT.BuildTab_ScrollAreas()
             animSpeed = {
                 type   = "range",
                 name   = "Animation Speed",
-                desc   = "Duration in seconds for text animation (1.0 = normal).",
+                desc   = "Speed multiplier for text animation (1.0 = normal, lower = slower).",
                 order  = 25,
                 width  = "full",
-                min    = 0.5,
+                min    = 0.1,
                 max    = 3.0,
                 step   = 0.1,
                 -- Hidden when no area selected, or when animation style is Static
@@ -1020,13 +1040,15 @@ function TSBT.BuildTab_Incoming()
             },
             damageMinThreshold = {
                 type    = "range",
-                name    = "Minimum Damage Threshold",
-                desc    = "Suppress incoming damage below this value (0 = show all).",
+                name    = "Minimum Damage Threshold |cFFFF0000(Non-functional)|r",
+                desc    = "|cFFFF8800WoW 12.0 Limitation:|r Due to Blizzard's 'Secret Values' system, " ..
+                          "damage amounts cannot be compared or filtered. This setting has no effect.",
                 order   = 5,
                 min     = 0,
                 max     = 10000,
                 softMax = 5000,
                 step    = 50,
+                disabled = true,  -- Always disabled in WoW 12.0
                 get     = function() return TSBT.db.profile.incoming.damage.minThreshold end,
                 set     = function(_, val) TSBT.db.profile.incoming.damage.minThreshold = val end,
             },
@@ -1070,15 +1092,136 @@ function TSBT.BuildTab_Incoming()
                 get   = function() return TSBT.db.profile.incoming.healing.showHoTTicks end,
                 set   = function(_, val) TSBT.db.profile.incoming.healing.showHoTTicks = val end,
             },
+            healingShowSpellInfo = {
+                type  = "toggle",
+                name  = "Show Spell Name & Icon",
+                desc  = "Display the spell name and icon alongside incoming heals.",
+                width = "full",
+                order = 13.5,
+                get   = function() return TSBT.db.profile.incoming.healing.showSpellInfo end,
+                set   = function(_, val) TSBT.db.profile.incoming.healing.showSpellInfo = val end,
+            },
+
+            ----------------------------------------------------------------
+            -- HoT Spell ID Configuration
+            -- Users add their own HoT spell IDs for attribution
+            ----------------------------------------------------------------
+            headerHoTs = {
+                type  = "header",
+                name  = "HoT Spell Attribution",
+                order = 15,
+            },
+            hotDescription = {
+                type  = "description",
+                name  = "|cFFFFFF00WoW 12.0 Note:|r To attribute HoT ticks to specific spells, " ..
+                        "add the spell IDs of your healing-over-time abilities below.\n\n" ..
+                        "|cFF888888Tip: Use an addon like IdTip to see spell IDs in tooltips, " ..
+                        "or type: /run print((GetSpellInfo(\"Spell Name\")))|r",
+                order = 15.1,
+                width = "full",
+                fontSize = "medium",
+            },
+            hotSpellIDInput = {
+                type  = "input",
+                name  = "Add HoT Spell ID",
+                desc  = "Enter a spell ID and press Enter to add it to the HoT tracking list.",
+                order = 15.2,
+                width = "double",
+                get   = function() return "" end,
+                set   = function(_, val)
+                    local spellID = tonumber(strtrim(val or ""))
+                    if not spellID then
+                        Addon:Print("Invalid spell ID: " .. tostring(val))
+                        return
+                    end
+
+                    -- Verify spell exists
+                    local spellName = SafeGetSpellName(spellID)
+                    if not spellName then
+                        Addon:Print("Spell ID " .. spellID .. " not found.")
+                        return
+                    end
+
+                    -- Add to HoT list
+                    if not TSBT.db.profile.incoming.healing.hotSpellIDs then
+                        TSBT.db.profile.incoming.healing.hotSpellIDs = {}
+                    end
+
+                    if TSBT.db.profile.incoming.healing.hotSpellIDs[spellID] then
+                        Addon:Print(spellName .. " (ID: " .. spellID .. ") is already tracked.")
+                        return
+                    end
+
+                    TSBT.db.profile.incoming.healing.hotSpellIDs[spellID] = true
+                    Addon:Print("Added HoT: " .. spellName .. " (ID: " .. spellID .. ")")
+                    LibStub("AceConfigRegistry-3.0"):NotifyChange("TrueStrike")
+                end,
+            },
+            hotSpellList = {
+                type  = "description",
+                name  = function()
+                    local hotIDs = TSBT.db.profile.incoming.healing.hotSpellIDs
+                    if not hotIDs or not next(hotIDs) then
+                        return "|cFF888888No HoT spells configured.|r"
+                    end
+
+                    local lines = { "|cFFAAFFAAConfigured HoT Spells:|r" }
+                    for spellID, _ in pairs(hotIDs) do
+                        local name = SafeGetSpellName(spellID) or "Unknown"
+                        table.insert(lines, "  " .. name .. " (ID: " .. spellID .. ")")
+                    end
+                    return table.concat(lines, "\n")
+                end,
+                order = 15.3,
+                width = "full",
+                fontSize = "medium",
+            },
+            hotSpellRemoveInput = {
+                type  = "input",
+                name  = "Remove HoT Spell ID",
+                desc  = "Enter a spell ID to remove it from the HoT tracking list.",
+                order = 15.4,
+                width = "double",
+                get   = function() return "" end,
+                set   = function(_, val)
+                    local spellID = tonumber(strtrim(val or ""))
+                    if not spellID then
+                        Addon:Print("Invalid spell ID: " .. tostring(val))
+                        return
+                    end
+
+                    if not TSBT.db.profile.incoming.healing.hotSpellIDs then
+                        Addon:Print("No HoT spells configured.")
+                        return
+                    end
+
+                    if not TSBT.db.profile.incoming.healing.hotSpellIDs[spellID] then
+                        Addon:Print("Spell ID " .. spellID .. " is not in the HoT list.")
+                        return
+                    end
+
+                    local spellName = SafeGetSpellName(spellID) or "Unknown"
+                    TSBT.db.profile.incoming.healing.hotSpellIDs[spellID] = nil
+                    Addon:Print("Removed HoT: " .. spellName .. " (ID: " .. spellID .. ")")
+                    LibStub("AceConfigRegistry-3.0"):NotifyChange("TrueStrike")
+                end,
+            },
+
+            ----------------------------------------------------------------
+            -- Threshold (deprecated in WoW 12.0)
+            ----------------------------------------------------------------
             healingMinThreshold = {
                 type    = "range",
-                name    = "Minimum Healing Threshold",
-                desc    = "Suppress incoming heals below this value (0 = show all).",
-                order   = 14,
+                name    = "Minimum Healing Threshold |cFFFF0000(Non-functional)|r",
+                desc    = "|cFFFF8800WoW 12.0 Limitation:|r Due to Blizzard's 'Secret Values' system, " ..
+                          "heal amounts cannot be compared or filtered. This setting has no effect.\n\n" ..
+                          "Heal amounts can only be displayed, not used in threshold calculations.",
+                order   = 16,
                 min     = 0,
                 max     = 10000,
                 softMax = 5000,
                 step    = 50,
+                disabled = true,  -- Always disabled in WoW 12.0
                 get     = function() return TSBT.db.profile.incoming.healing.minThreshold end,
                 set     = function(_, val) TSBT.db.profile.incoming.healing.minThreshold = val end,
             },
@@ -2237,4 +2380,134 @@ function TSBT.TestScrollArea(areaName)
             end
         end)
     end
+end
+
+------------------------------------------------------------------------
+-- TAB 9: DIAGNOSTICS
+-- Debug level control, event logging, and troubleshooting tools.
+------------------------------------------------------------------------
+function TSBT.BuildTab_Diagnostics()
+    return {
+        type  = "group",
+        name  = "Diagnostics",
+        order = 9,
+        args  = {
+            headerDebug = {
+                type  = "header",
+                name  = "Debug Output",
+                order = 1,
+            },
+            debugLevel = {
+                type   = "select",
+                name   = "Debug Level",
+                desc   = "Controls how much debug information is printed to chat.\n\n" ..
+                         "|cFFFFFFFF0 - Off|r: No debug output (recommended for normal use)\n" ..
+                         "|cFFFFFFFF1 - Minimal|r: Module enable/disable messages\n" ..
+                         "|cFFFFFFFF2 - Verbose|r: Event processing details\n" ..
+                         "|cFFFFFFFF3 - All Events|r: Every event (very spammy!)",
+                order  = 2,
+                width  = "double",
+                values = {
+                    [0] = "0 - Off",
+                    [1] = "1 - Minimal",
+                    [2] = "2 - Verbose",
+                    [3] = "3 - All Events",
+                },
+                get    = function()
+                    return TSBT.db.profile.diagnostics.debugLevel
+                end,
+                set    = function(_, val)
+                    TSBT.db.profile.diagnostics.debugLevel = val
+                    Addon:Print("Debug level set to " .. val)
+                end,
+            },
+            debugNote = {
+                type     = "description",
+                name     = "|cFFFFAA00Note:|r Debug output appears in your chat window. " ..
+                           "Set to 0 (Off) for normal gameplay to avoid spam.",
+                order    = 3,
+                fontSize = "medium",
+            },
+
+            ----------------------------------------------------------------
+            -- Event Capture
+            ----------------------------------------------------------------
+            headerCapture = {
+                type  = "header",
+                name  = "Event Capture",
+                order = 10,
+            },
+            captureEnabled = {
+                type  = "toggle",
+                name  = "Enable Event Logging",
+                desc  = "Log combat events to SavedVariables for post-session analysis. " ..
+                        "Events are stored in TrueStrikeDB and can be viewed after /reload.",
+                width = "full",
+                order = 11,
+                get   = function() return TSBT.db.profile.diagnostics.captureEnabled end,
+                set   = function(_, val) TSBT.db.profile.diagnostics.captureEnabled = val end,
+            },
+            maxEntries = {
+                type     = "range",
+                name     = "Max Log Entries",
+                desc     = "Maximum number of events to keep in the log (oldest are dropped).",
+                order    = 12,
+                min      = 50,
+                max      = 1000,
+                step     = 50,
+                disabled = function() return not TSBT.db.profile.diagnostics.captureEnabled end,
+                get      = function() return TSBT.db.profile.diagnostics.maxEntries end,
+                set      = function(_, val) TSBT.db.profile.diagnostics.maxEntries = val end,
+            },
+            clearLog = {
+                type     = "execute",
+                name     = "Clear Event Log",
+                desc     = "Delete all stored events from the log.",
+                order    = 13,
+                disabled = function() return not TSBT.db.profile.diagnostics.captureEnabled end,
+                func     = function()
+                    if Addon.ClearDiagnosticLog then
+                        Addon:ClearDiagnosticLog()
+                    else
+                        wipe(TSBT.db.profile.diagnostics.log)
+                        Addon:Print("Diagnostic log cleared.")
+                    end
+                end,
+            },
+            logCount = {
+                type     = "description",
+                name     = function()
+                    local count = TSBT.db.profile.diagnostics.log and #TSBT.db.profile.diagnostics.log or 0
+                    return "|cFF888888Current log entries: " .. count .. "|r"
+                end,
+                order    = 14,
+                fontSize = "medium",
+            },
+
+            ----------------------------------------------------------------
+            -- Troubleshooting
+            ----------------------------------------------------------------
+            headerTrouble = {
+                type  = "header",
+                name  = "Troubleshooting",
+                order = 20,
+            },
+            versionInfo = {
+                type     = "description",
+                name     = function()
+                    return "|cFF4A9EFFTrueStrike|r v" .. (TSBT.VERSION or "?") ..
+                           "\nWoW Interface: " .. (select(4, GetBuildInfo()) or "?")
+                end,
+                order    = 21,
+                fontSize = "medium",
+            },
+            reloadUI = {
+                type  = "execute",
+                name  = "Reload UI",
+                desc  = "Reload the user interface (same as /reload).",
+                order = 22,
+                func  = function() ReloadUI() end,
+            },
+        },
+    }
 end

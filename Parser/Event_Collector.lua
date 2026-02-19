@@ -120,23 +120,57 @@ local HEAL_EVENT_TYPES = {
 }
 
 -- Parse self-heal combat text into structured events.
-function Collector:handleCombatTextUpdate(arg1)
-	if not (C_CombatText and C_CombatText.GetCurrentEventInfo) then return end
+-- COMBAT_TEXT_UPDATE event args and C_CombatText.GetCurrentEventInfo() return different things.
+-- Need to test what contains the actual spell name.
+function Collector:handleCombatTextUpdate(arg1, arg2, arg3, arg4, arg5)
 	if not HEAL_EVENT_TYPES[arg1] then return end
 
-	local _, arg3 = C_CombatText.GetCurrentEventInfo()
-	if arg3 == nil then return end
+	-- DEBUG: Print ALL event arguments
+	print("CTU EVENT ARGS: arg1=", arg1, "arg2=", arg2, "arg3=", arg3, "arg4=", arg4, "arg5=", arg5)
 
-	local spellName = self._lastPlayerSpellName
-	if type(spellName) ~= "string" or spellName == "" then
-		spellName = "Heal"
+	-- Also check GetCurrentEventInfo
+	if C_CombatText and C_CombatText.GetCurrentEventInfo then
+		local v1, v2, v3, v4, v5 = C_CombatText.GetCurrentEventInfo()
+		print("CTU GetCurrentEventInfo: v1=", v1, "v2=", v2, "v3=", v3, "v4=", v4, "v5=", v5)
 	end
+
+	-- Use arg3 for amount (confirmed working from your tests)
+	local amount = arg3
+	if amount == nil then
+		-- Fallback to GetCurrentEventInfo second return
+		if C_CombatText and C_CombatText.GetCurrentEventInfo then
+			local _, amt = C_CombatText.GetCurrentEventInfo()
+			amount = amt
+		end
+	end
+
+	if amount == nil then return end
+
+	-- arg2 might be the spell name - need to verify from debug output
+	-- NOTE: May be a secret string - can display but not compare
+	local spellName = arg2
+
+	local isCrit = arg1 == "HEAL_CRIT" or arg1 == "PERIODIC_HEAL_CRIT"
+	local isPeriodic = arg1 == "PERIODIC_HEAL" or arg1 == "PERIODIC_HEAL_CRIT"
 
 	emit("SELF_HEAL_TEXT", {
 		timestamp = now(),
-		spellName = spellName,
-		amountText = tostring(arg3),
-		isCrit = arg1 == "HEAL_CRIT" or arg1 == "PERIODIC_HEAL_CRIT",
+		spellName = spellName,  -- May be secret string: display only
+		spellIcon = nil,
+		amountText = tostring(amount),
+		isCrit = isCrit,
+		isPeriodic = isPeriodic,
+	})
+
+	-- Incoming healing for the player uses combat text events as a non-UNIT_COMBAT path.
+	emit("INCOMING_HEAL_TEXT", {
+		timestamp = now(),
+		targetName = safeUnitName("player"),
+		spellName = spellName,  -- May be secret string: display only
+		spellIcon = nil,
+		amountText = tostring(amount),
+		isCrit = isCrit,
+		isPeriodic = isPeriodic,
 	})
 end
 
@@ -144,7 +178,9 @@ end
 -- Fall Damage Detection (UNIT_COMBAT + IsFalling)
 --==================================--
 
--- Detect incoming player damage and classify fall damage while airborne.
+-- Detect incoming player damage/heals and classify fall damage while airborne.
+-- UNIT_COMBAT fires with action="WOUND" for damage, action="HEAL" for heals.
+-- Amount is NOT a Secret Value here - real numbers come through.
 function Collector:handleUnitCombat(unit, action, _, amount, school)
 	if unit ~= "player" then return end
 	if action == "WOUND" and school == 1 and isFalling then
@@ -155,6 +191,13 @@ function Collector:handleUnitCombat(unit, action, _, amount, school)
 		})
 	elseif action == "WOUND" then
 		emit("INCOMING_DAMAGE", {
+			timestamp = now(),
+			amount = amount,
+			school = school,
+		})
+	elseif action == "HEAL" then
+		-- Incoming heals from any source (self, party members, etc.)
+		emit("INCOMING_HEAL_COMBAT", {
 			timestamp = now(),
 			amount = amount,
 			school = school,

@@ -44,6 +44,7 @@ Parser\State_Manager.lua
 Parser\Correlation_Logic.lua
 Parser\Event_Collector.lua
 Parser\Pulse_Engine.lua
+Parser\HealAttribution.lua
 
 # UI - Config tabs before main config assembler
 UI\ConfigTabs.lua

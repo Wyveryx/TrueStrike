@@ -1,8 +1,15 @@
 TrueStrike
 |   CHANGELOG.md
 |   CLAUDE.md
+|   ClaudeOpus4.5.lnk
+|   ClaudeOpus4.5.ps1
+|   Claude_Opus_Findings.md
+|   DEV_GUIDE.md
 |   Error Resolutions.md
+|   Error_Resolutions.md
 |   README.md
+|   Self Heals Testing.txt
+|   Testing Regimine.docx
 |   TrueStrike.toc
 |   _FolderStructure.txt
 |   
@@ -159,9 +166,14 @@ TrueStrike
 +---Parser
 |       CombatLog_Detect.lua
 |       Cooldowns_Detect.lua
+|       Correlation_Logic.lua
+|       Event_Collector.lua
+|       HealAttribution.lua
 |       Incoming_Detect.lua
 |       Normalize.lua
 |       Outgoing_Detect.lua
+|       Pulse_Engine.lua
+|       State_Manager.lua
 |       
 \---UI
         Config.lua

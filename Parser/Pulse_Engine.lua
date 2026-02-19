@@ -46,6 +46,13 @@ function Engine:_emitOutgoing(ev)
 	end
 end
 
+function Engine:_emitIncoming(ev)
+	local parser = TSBT.Parser and TSBT.Parser.Incoming
+	if parser and parser.ProcessEvent then
+		parser:ProcessEvent(ev)
+	end
+end
+
 function Engine:_processSpellcast(sample)
 	if not StateManager then return end
 	if not sample then return end
@@ -74,11 +81,21 @@ function Engine:_processHealthDamage(sample)
 		isPeriodic = sample.isPeriodic == true,
 	}
 
-	self:_emitOutgoing(normalized)
+	if sample.unit == "player" then
+		self:_emitIncoming(normalized)
+	else
+		self:_emitOutgoing(normalized)
+	end
 end
 
 function Engine:_processHealthHeal(sample)
 	if not sample or not CorrelationLogic or not StateManager then return end
+
+	-- WoW 12.0: Skip incoming heals (player target) - HealAttribution handles these
+	-- via COMBAT_TEXT_UPDATE with proper secret value passthrough
+	if sample.unit == "player" then
+		return
+	end
 
 	local activeCasts = StateManager:getActiveCasts()
 	local bestCast, confidence = CorrelationLogic:findBestCast(activeCasts, sample)
@@ -98,6 +115,7 @@ function Engine:_processHealthHeal(sample)
 		confidence = confidence or CorrelationLogic.CONFIDENCE.UNKNOWN,
 	}
 
+	-- Only outgoing heals reach here now
 	self:_emitOutgoing(normalized)
 end
 
@@ -120,7 +138,11 @@ function Engine:_processHealthChangeSecret(sample)
 		isPeriodic = false,
 	}
 
-	self:_emitOutgoing(normalized)
+	if sample.unit == "player" then
+		self:_emitIncoming(normalized)
+	else
+		self:_emitOutgoing(normalized)
+	end
 end
 
 function Engine:_processHealth(_)
@@ -155,6 +177,67 @@ function Engine:flushBucket()
 					targetName = nil,
 					isCrit = sample.isCrit,
 					timestamp = sample.timestamp,
+					confidence = CorrelationLogic and CorrelationLogic.CONFIDENCE and CorrelationLogic.CONFIDENCE.HIGH or "HIGH",
+					isPeriodic = false,
+				})
+			elseif sample.eventType == "INCOMING_HEAL_TEXT" then
+				-- DEBUG: Print what's in the sample
+				print("PULSE DEBUG: INCOMING_HEAL_TEXT spellName=", sample.spellName)
+				self:_emitIncoming({
+					kind = "heal",
+					amount = nil,
+					amountText = sample.amountText,
+					spellName = sample.spellName,
+					spellIcon = sample.spellIcon,
+					spellId = nil,
+					targetName = sample.targetName,
+					isCrit = sample.isCrit,
+					timestamp = sample.timestamp,
+					confidence = CorrelationLogic and CorrelationLogic.CONFIDENCE and CorrelationLogic.CONFIDENCE.HIGH or "HIGH",
+					isPeriodic = sample.isPeriodic == true,
+				})
+			elseif sample.eventType == "INCOMING_DAMAGE" then
+				-- UNIT_COMBAT damage events (real amounts, not secret values)
+				self:_emitIncoming({
+					kind = "damage",
+					amount = sample.amount,
+					amountText = nil,
+					spellName = nil,
+					spellId = nil,
+					targetName = sample.targetName,
+					isCrit = false,
+					timestamp = sample.timestamp,
+					schoolMask = sample.school,
+					confidence = CorrelationLogic and CorrelationLogic.CONFIDENCE and CorrelationLogic.CONFIDENCE.HIGH or "HIGH",
+					isPeriodic = false,
+				})
+			elseif sample.eventType == "FALL_DAMAGE" then
+				-- Fall damage from UNIT_COMBAT while IsFalling
+				self:_emitIncoming({
+					kind = "damage",
+					amount = sample.amount,
+					amountText = nil,
+					spellName = "Fall",
+					spellId = nil,
+					targetName = sample.targetName,
+					isCrit = false,
+					timestamp = sample.timestamp,
+					schoolMask = sample.school,
+					confidence = CorrelationLogic and CorrelationLogic.CONFIDENCE and CorrelationLogic.CONFIDENCE.HIGH or "HIGH",
+					isPeriodic = false,
+				})
+			elseif sample.eventType == "INCOMING_HEAL_COMBAT" then
+				-- Incoming heals from UNIT_COMBAT (real amounts, any source)
+				self:_emitIncoming({
+					kind = "heal",
+					amount = sample.amount,
+					amountText = nil,
+					spellName = nil,
+					spellId = nil,
+					targetName = sample.targetName,
+					isCrit = false,
+					timestamp = sample.timestamp,
+					schoolMask = sample.school,
 					confidence = CorrelationLogic and CorrelationLogic.CONFIDENCE and CorrelationLogic.CONFIDENCE.HIGH or "HIGH",
 					isPeriodic = false,
 				})

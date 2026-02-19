@@ -485,6 +485,301 @@ function TSBT.IsContinuousTesting()
 end
 
 ------------------------------------------------------------------------
+-- DisplayHealWithSecret: Display a heal with SECRET VALUE passthrough.
+-- The secretAmount can ONLY be passed directly to SetText() via tostring().
+-- It cannot be stored in tables or concatenated beforehand.
+--
+-- @param scrollAreaName (string) Name of scroll area to display in
+-- @param prefix         (string) Text prefix (e.g., "Healing Wave: +")
+-- @param secretAmount   (secret) The heal amount (SECRET VALUE from CTU)
+-- @param color          (table)  {r, g, b} text color
+-- @param meta           (table)  Metadata: spellName, spellIcon, isCrit, etc.
+------------------------------------------------------------------------
+function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color, meta)
+    if not TSBT.db or not TSBT.db.profile then return end
+
+    local area = TSBT.db.profile.scrollAreas and TSBT.db.profile.scrollAreas[scrollAreaName]
+    if not area then
+        -- Fallback to "Incoming" area if specified area not found
+        area = TSBT.db.profile.scrollAreas and TSBT.db.profile.scrollAreas["Incoming"]
+        if not area then return end
+    end
+
+    -- Check if master and incoming healing are enabled
+    local masterEnabled = TSBT.db.profile.general and TSBT.db.profile.general.enabled
+    if not masterEnabled then return end
+
+    local healConf = TSBT.db.profile.incoming and TSBT.db.profile.incoming.healing
+    if not healConf or not healConf.enabled then return end
+
+    -- Resolve font settings
+    local fontFace, fontSize, outlineFlag, fontAlpha = ResolveFontForArea(scrollAreaName)
+
+    -- Determine alignment
+    local alignmentMap = {
+        ["Left"]   = "LEFT",
+        ["Center"] = "CENTER",
+        ["Right"]  = "RIGHT",
+    }
+    local anchorH = alignmentMap[area.alignment] or "CENTER"
+
+    -- Direction
+    local dirMult = (area.direction == "Down") and -1 or 1
+
+    -- Duration
+    local baseDuration = 2.0
+    local duration = baseDuration / (area.animSpeed or 1.0)
+
+    -- Create parent frame for this area
+    local parentKey = string.format("heal_%.0f_%.0f", area.xOffset, area.yOffset)
+
+    if not TSBT._healParentFrames then
+        TSBT._healParentFrames = {}
+    end
+
+    local parent = TSBT._healParentFrames[parentKey]
+    if not parent then
+        parent = CreateFrame("Frame", "TSBT_HealParent_" .. parentKey, UIParent)
+        parent:SetFrameStrata("HIGH")
+        TSBT._healParentFrames[parentKey] = parent
+    end
+
+    parent:ClearAllPoints()
+    parent:SetSize(area.width, area.height)
+    parent:SetPoint("CENTER", UIParent, "CENTER", area.xOffset, area.yOffset)
+    parent:Show()
+
+    -- Dynamic stacking: track active entries and their current positions
+    -- New entries start behind the entry closest to origin with proper spacing
+    if not parent._activeEntries then parent._activeEntries = {} end
+
+    -- Spacing to maintain between entries (accounts for crit scaling 1.3x, icons, and timing margin)
+    -- Using 2x font size + generous padding for reliable separation
+    local slotSpacing = (fontSize * 2) + 16
+    local totalDistance = area.height
+    local now = GetTime()
+
+    -- Find the entry with the lowest Y position (for scroll up) or highest (for scroll down)
+    -- New entry starts behind that with proper spacing
+    local stackOffset = 0
+
+    if #parent._activeEntries > 0 then
+        -- For scroll UP (dirMult=1): find minimum Y position (closest to bottom)
+        -- For scroll DOWN (dirMult=-1): find maximum Y position (closest to top)
+        local tailPosition = nil  -- Position of the "last" entry in the scroll direction
+
+        for _, entry in ipairs(parent._activeEntries) do
+            -- Calculate this entry's CURRENT position
+            local elapsed = now - entry.startTime
+            local progress = math.min(elapsed / entry.duration, 1.0)
+            local distanceTraveled = entry.totalDistance * progress
+            local currentY = entry.startOffset + (distanceTraveled * entry.dirMult)
+
+            if tailPosition == nil then
+                tailPosition = currentY
+            elseif dirMult > 0 then
+                -- Scroll UP: find minimum Y (entry closest to bottom/origin)
+                tailPosition = math.min(tailPosition, currentY)
+            else
+                -- Scroll DOWN: find maximum Y (entry closest to top/origin)
+                tailPosition = math.max(tailPosition, currentY)
+            end
+        end
+
+        -- New entry starts behind the tail with slotSpacing gap
+        if tailPosition ~= nil then
+            -- For scroll UP: new entry at tailPosition - slotSpacing (below the tail)
+            -- For scroll DOWN: new entry at tailPosition + slotSpacing (above the tail)
+            stackOffset = tailPosition - (slotSpacing * dirMult)
+        end
+    end
+
+    -- Register this entry for tracking
+    local entryData = {
+        startTime = now,
+        startOffset = stackOffset,  -- Where this entry started (may be negative/outside visible area)
+        duration = duration,
+        totalDistance = totalDistance,
+        dirMult = dirMult,
+    }
+    table.insert(parent._activeEntries, entryData)
+
+    -- Create container frame for icon + text
+    local container = CreateFrame("Frame", nil, parent)
+    container:SetSize(area.width, fontSize + 4)
+
+    -- Starting position
+    local startAnchorV = (dirMult > 0) and "BOTTOM" or "TOP"
+    local startPoint = startAnchorV
+    if anchorH == "LEFT" then
+        startPoint = startAnchorV .. "LEFT"
+    elseif anchorH == "RIGHT" then
+        startPoint = startAnchorV .. "RIGHT"
+    end
+
+    container:SetPoint(startPoint, parent, startPoint, 0, stackOffset)
+
+    -- Create icon if we have spell info
+    local iconSize = fontSize + 2
+    local iconFrame = nil
+    local showIcon = healConf.showSpellInfo and meta and meta.spellIcon
+
+    if showIcon then
+        iconFrame = container:CreateTexture(nil, "ARTWORK")
+        iconFrame:SetSize(iconSize, iconSize)
+        iconFrame:SetTexture(meta.spellIcon)
+        iconFrame:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- Trim icon borders
+
+        if anchorH == "LEFT" then
+            iconFrame:SetPoint("LEFT", container, "LEFT", 0, 0)
+        elseif anchorH == "RIGHT" then
+            iconFrame:SetPoint("RIGHT", container, "RIGHT", 0, 0)
+        else
+            -- Center alignment: icon to left of text
+            iconFrame:SetPoint("LEFT", container, "LEFT", 0, 0)
+        end
+    end
+
+    -- Create FontString
+    local fs = container:CreateFontString(nil, "OVERLAY")
+    fs:SetFont(fontFace, fontSize, outlineFlag)
+    fs:SetAlpha(fontAlpha)
+
+    -- Apply color
+    local c = color or { r = 0.2, g = 1.0, b = 0.2 }
+    fs:SetTextColor(c.r or 0.2, c.g or 1.0, c.b or 0.2, 1.0)
+
+    -- CRITICAL: Build text with secret value using SetText directly
+    -- The tostring(secretAmount) must happen inside SetText, not beforehand
+    fs:SetText(prefix .. tostring(secretAmount))
+
+    -- Position text relative to icon
+    if showIcon and iconFrame then
+        if anchorH == "RIGHT" then
+            fs:SetPoint("RIGHT", iconFrame, "LEFT", -4, 0)
+        else
+            fs:SetPoint("LEFT", iconFrame, "RIGHT", 4, 0)
+        end
+    else
+        if anchorH == "LEFT" then
+            fs:SetPoint("LEFT", container, "LEFT", 0, 0)
+        elseif anchorH == "RIGHT" then
+            fs:SetPoint("RIGHT", container, "RIGHT", 0, 0)
+        else
+            fs:SetPoint("CENTER", container, "CENTER", 0, 0)
+        end
+    end
+
+    -- Crit scaling
+    if meta and meta.isCrit then
+        local critScale = 1.3
+        fs:SetTextScale(critScale)
+        if iconFrame then
+            iconFrame:SetSize(iconSize * critScale, iconSize * critScale)
+        end
+    end
+
+    -- Animation
+    local totalDistance = area.height
+    local elapsed = 0
+    local animStyle = area.animation or "Straight"
+
+    -- Store refs for cleanup
+    local parentRef = parent
+    local thisEntry = entryData
+
+    local animFrame = CreateFrame("Frame")
+    animFrame:SetScript("OnUpdate", function(self, dt)
+        elapsed = elapsed + dt
+
+        local progress = elapsed / duration
+        if progress >= 1.0 then
+            -- Remove this entry from active tracking
+            if parentRef._activeEntries then
+                for i, entry in ipairs(parentRef._activeEntries) do
+                    if entry == thisEntry then
+                        table.remove(parentRef._activeEntries, i)
+                        break
+                    end
+                end
+            end
+            container:Hide()
+            container:SetParent(nil)
+            self:SetScript("OnUpdate", nil)
+            return
+        end
+
+        -- Vertical position
+        local yOffset = 0
+        local xOffset = 0
+
+        if animStyle == "Straight" or animStyle == "straight" then
+            yOffset = totalDistance * progress * dirMult
+        elseif animStyle == "Parabola" or animStyle == "parabola" then
+            yOffset = totalDistance * progress * dirMult
+            local arcWidth = area.width * 0.3
+            xOffset = math.sin(progress * math.pi) * arcWidth
+        elseif animStyle == "Static" or animStyle == "static" then
+            yOffset = 0
+        end
+
+        container:ClearAllPoints()
+        container:SetPoint(startPoint, parent, startPoint, xOffset, stackOffset + yOffset)
+
+        -- Alpha fade
+        local alpha = fontAlpha
+        if animStyle == "Static" or animStyle == "static" then
+            if progress < 0.1 then
+                alpha = fontAlpha * (progress / 0.1)
+            elseif progress > 0.7 then
+                alpha = fontAlpha * (1.0 - ((progress - 0.7) / 0.3))
+            end
+        else
+            if progress > 0.6 then
+                alpha = fontAlpha * (1.0 - ((progress - 0.6) / 0.4))
+            end
+        end
+
+        fs:SetAlpha(math.max(0, alpha))
+        if iconFrame then
+            iconFrame:SetAlpha(math.max(0, alpha))
+        end
+    end)
+end
+
+------------------------------------------------------------------------
+-- DisplayText: Generic text display (fallback, no secret value handling)
+-- @param scrollAreaName (string) Name of scroll area
+-- @param text           (string) Pre-built text string
+-- @param color          (table)  {r, g, b} text color
+-- @param meta           (table)  Optional metadata
+------------------------------------------------------------------------
+function TSBT.DisplayText(scrollAreaName, text, color, meta)
+    if not TSBT.db or not TSBT.db.profile then return end
+
+    local area = TSBT.db.profile.scrollAreas and TSBT.db.profile.scrollAreas[scrollAreaName]
+    if not area then
+        area = TSBT.db.profile.scrollAreas and TSBT.db.profile.scrollAreas["Incoming"]
+        if not area then return end
+    end
+
+    local fontFace, fontSize, outlineFlag, fontAlpha = ResolveFontForArea(scrollAreaName)
+
+    local alignmentMap = {
+        ["Left"]   = "LEFT",
+        ["Center"] = "CENTER",
+        ["Right"]  = "RIGHT",
+    }
+    local anchorH = alignmentMap[area.alignment] or "CENTER"
+    local dirMult = (area.direction == "Down") and -1 or 1
+    local baseDuration = 2.0
+    local duration = baseDuration / (area.animSpeed or 1.0)
+
+    TSBT.FireTestText(text, area, fontFace, fontSize, outlineFlag,
+                      fontAlpha, anchorH, dirMult, duration, color)
+end
+
+------------------------------------------------------------------------
 -- FireTestText: Create and animate a single test text FontString.
 -- This is a standalone test display, independent of the future
 -- Display.lua pooling system.

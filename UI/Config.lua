@@ -1,6 +1,6 @@
 ------------------------------------------------------------------------
 -- TrueStrike Battle Text - Configuration UI
--- Builds the master AceConfig-3.0 options table with all 8 tabs.
+-- Builds the master AceConfig-3.0 options table with all 9 tabs.
 -- Each tab is constructed in ConfigTabs.lua and assembled here.
 ------------------------------------------------------------------------
 
@@ -133,6 +133,11 @@ function TSBT.BuildOptionsTable()
             -- Tab 8: Media
             ----------------------------------------------------------------
             media = TSBT.BuildTab_Media(),
+
+            ----------------------------------------------------------------
+            -- Tab 9: Diagnostics
+            ----------------------------------------------------------------
+            diagnostics = TSBT.BuildTab_Diagnostics(),
 
             ----------------------------------------------------------------
             -- Profiles tab placeholder (injected by Init.lua after DB init)

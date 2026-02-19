@@ -307,8 +307,9 @@ function Probe:OnIncomingDetected(evt)
         PushEvent(evt)
     end
 
-    -- Emit live while capturing so the user can see behavior immediately.
-    if self._capturing then self:ProcessIncomingEvent(evt, false) end
+    -- Always display incoming events in real-time.
+    -- Capture mode only controls buffer storage, not display.
+    self:ProcessIncomingEvent(evt, false)
 end
 
 function Probe:ProcessIncomingEvent(evt, isReplay)
@@ -322,10 +323,17 @@ function Probe:ProcessIncomingEvent(evt, isReplay)
     local kind = evt.kind
     if kind ~= "damage" and kind ~= "heal" then return end
 
+    -- Skip heals here - HealAttribution handles incoming heals via COMBAT_TEXT_UPDATE
+    -- with better attribution (spell names, icons). This prevents duplicate display.
+    if kind == "heal" then
+        return
+    end
+
     local conf = (kind == "damage") and prof.damage or prof.healing
     if not conf or not conf.enabled then return end
 
-    local amt = tonumber(evt.amount) or 0
+    -- Handle both numeric amount (UNIT_COMBAT path) and string amountText (COMBAT_TEXT_UPDATE path)
+    local amt = tonumber(evt.amount) or tonumber(evt.amountText) or 0
     if amt <= 0 then return end
 
     local minT = tonumber(conf.minThreshold) or 0
@@ -333,13 +341,25 @@ function Probe:ProcessIncomingEvent(evt, isReplay)
 
     local area = conf.scrollArea or "Incoming"
 
-    -- Format
-    local text = tostring(math.floor(amt + 0.5))
+    -- Format: use amountText directly if available (preserves original formatting), else format amt
+    local text = evt.amountText or tostring(math.floor(amt + 0.5))
 
-    -- Optional flags
+    -- Optional flags for damage
     if kind == "damage" and prof.damage.showFlags and type(evt.flagText) ==
         "string" and evt.flagText ~= "" then
         text = text .. " " .. evt.flagText
+    end
+
+    -- Optional spell name for heals
+    -- NOTE: evt.spellName may be a SECRET STRING VALUE (WoW 12.0)
+    -- Secret strings can be displayed but some operations may fail, so we use pcall
+    if kind == "heal" and conf.showSpellInfo and evt.spellName then
+        local ok, combined = pcall(function()
+            return tostring(evt.spellName) .. " +" .. text
+        end)
+        if ok and combined then
+            text = combined
+        end
     end
 
     -- Color

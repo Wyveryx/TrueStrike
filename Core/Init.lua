@@ -1,5 +1,3 @@
---Delete this print
-print(">>> TRUESTRIKE EDITOR SYNC VERIFIED <<<")
 ------------------------------------------------------------------------
 -- TrueStrike Battle Text - Initialization
 -- Creates the addon object, registers chat commands, initializes DB.
@@ -20,6 +18,27 @@ local pendingParserEnable = false
 local pendingParserDisable = false
 
 ------------------------------------------------------------------------
+-- Apply Blizzard FCT CVar Settings
+-- Controls whether Blizzard's floating combat text displays.
+-- NOTE: We need enableFloatingCombatText=1 for COMBAT_TEXT_UPDATE events
+-- to fire, but users may want the visual display disabled.
+------------------------------------------------------------------------
+local function ApplyBlizzardFCTSettings()
+    local disableFCT = TSBT.db and TSBT.db.profile
+        and TSBT.db.profile.general
+        and TSBT.db.profile.general.disableBlizzardFCT
+
+    if disableFCT then
+        -- Disable Blizzard's visual display
+        -- CTU events still fire even with this set to 0
+        SetCVar("enableFloatingCombatText", "0")
+    else
+        -- Ensure CTU events fire (user wants Blizzard FCT visible)
+        SetCVar("enableFloatingCombatText", "1")
+    end
+end
+
+------------------------------------------------------------------------
 -- Enable/Disable parsers (with combat lockdown protection)
 ------------------------------------------------------------------------
 local function EnableParsers()
@@ -28,7 +47,10 @@ local function EnableParsers()
         pendingParserDisable = false
         return false -- Deferred
     end
- 
+
+    -- Apply Blizzard FCT settings first
+    ApplyBlizzardFCTSettings()
+
     if TSBT.Parser then
         -- Enable data processors (sets _enabled flag, no event registration)
         if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Enable then
@@ -40,14 +62,19 @@ local function EnableParsers()
         if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Enable then
             TSBT.Parser.Cooldowns:Enable()
         end
- 
+
+        -- Enable HealAttribution (COMBAT_TEXT_UPDATE based heal display)
+        if TSBT.Parser.HealAttribution and TSBT.Parser.HealAttribution.Enable then
+            TSBT.Parser.HealAttribution:Enable()
+        end
+
         -- Enable master listener (registers COMBAT_LOG_EVENT_UNFILTERED)
         -- This MUST be last so data processors are ready before events fire
         if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Enable then
             TSBT.Parser.CombatLog:Enable()
         end
     end
- 
+
     pendingParserEnable = false
     return true -- Success
 end
@@ -58,13 +85,18 @@ local function DisableParsers()
         pendingParserEnable = false
         return false -- Deferred
     end
- 
+
     if TSBT.Parser then
         -- Disable master listener FIRST (stops event flow)
         if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Disable then
             TSBT.Parser.CombatLog:Disable()
         end
- 
+
+        -- Disable HealAttribution
+        if TSBT.Parser.HealAttribution and TSBT.Parser.HealAttribution.Disable then
+            TSBT.Parser.HealAttribution:Disable()
+        end
+
         -- Then disable data processors (clears _enabled flag)
         if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
             TSBT.Parser.Incoming:Disable()
@@ -76,7 +108,7 @@ local function DisableParsers()
             TSBT.Parser.Cooldowns:Disable()
         end
     end
- 
+
     pendingParserDisable = false
     return true -- Success
 end

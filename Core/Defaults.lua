@@ -15,8 +15,14 @@ TSBT.DEFAULTS = {
             enabled       = true,       -- Master enable/disable
             combatOnly    = false,      -- Only show text during combat
 
-            -- Optional: attempt to suppress Blizzard floating combat text
-            -- NOTE: May not work on all client builds (Blizzard changes / locks).
+            -- Disable Blizzard's floating combat text display
+            -- NOTE: This sets enableFloatingCombatText CVar to 0, which hides
+            -- Blizzard's visual display but still allows COMBAT_TEXT_UPDATE
+            -- events to fire for TrueStrike's use.
+            disableBlizzardFCT = false,
+
+            -- DEPRECATED (WoW 12.0): These no longer function due to API changes
+            -- Kept for backwards compatibility but have no effect.
             suppressBlizzardDamage  = false,
             suppressBlizzardHealing = false,
 
@@ -79,13 +85,25 @@ TSBT.DEFAULTS = {
                 enabled       = true,
                 scrollArea    = "Incoming",
                 showFlags     = true,
+                -- NOTE: minThreshold is non-functional in WoW 12.0 due to
+                -- "Secret Values" - amounts cannot be compared, only displayed.
                 minThreshold  = 0,
             },
             healing = {
                 enabled       = true,
                 scrollArea    = "Incoming",
                 showHoTTicks  = true,
+                showSpellInfo = true,   -- Show spell name and icon with heals
+                -- NOTE: minThreshold is non-functional in WoW 12.0 due to
+                -- "Secret Values" - amounts cannot be compared, only displayed.
                 minThreshold  = 0,
+
+                -- User-defined HoT spell IDs for attribution
+                -- When a PERIODIC_HEAL event fires, we check active buffs
+                -- against this list to determine which HoT produced the tick.
+                -- Format: { [spellID] = true, ... }
+                -- Example: { [61295] = true } for Riptide
+                hotSpellIDs = {},
             },
             useSchoolColors = true,
             customColor     = { r = 1, g = 1, b = 1 },
