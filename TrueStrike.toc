@@ -1,0 +1,31 @@
+## Interface: 120000
+## Title: TrueStrike
+## Notes: UI shell and scroll area test harness for Retail 12.0+
+## Author: TrueStrike Team
+## Version: 0.1.0
+## SavedVariables: TrueStrikeDB
+
+Ace3\LibStub\LibStub.lua
+Ace3\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Ace3\AceAddon-3.0\AceAddon-3.0.xml
+Ace3\AceDB-3.0\AceDB-3.0.xml
+Ace3\AceConfig-3.0\AceConfig-3.0.xml
+Ace3\AceConfig-3.0\AceConfigDialog-3.0\AceConfigDialog-3.0.xml
+Ace3\AceGUI-3.0\AceGUI-3.0.xml
+Ace3\AceConsole-3.0\AceConsole-3.0.xml
+Ace3\AceDBOptions-3.0\AceDBOptions-3.0.xml
+LibSharedMedia-3.0-v11.2.1\LibSharedMedia-3.0\lib.xml
+
+Core\Init.lua
+Core\DB.lua
+Core\Slash.lua
+
+UI\ScrollEngine.lua
+UI\TestHarness.lua
+UI\Shell.lua
+UI\Tabs\General.lua
+UI\Tabs\ScrollAreas.lua
+UI\Tabs\Incoming.lua
+UI\Tabs\Outgoing.lua
+UI\Tabs\Features.lua
+UI\Tabs\Diagnostics.lua
