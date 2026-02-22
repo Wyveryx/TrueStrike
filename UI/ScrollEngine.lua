@@ -47,6 +47,9 @@ function TrueStrike:CreateAreaFrames()
       frame:SetBackdropBorderColor(0.2, 0.7, 1, 0.5)
       frame:SetClipsChildren(true)
       frame:SetMovable(true)
+      frame:SetResizable(true)
+      frame:SetMinResize(120, 60)
+      frame:SetMaxResize(700, 400)
       frame.activeEntries = {}
 
       frame.label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -133,7 +136,7 @@ function TrueStrike:ApplyLockState()
   for _, frame in ipairs(self.areaFrames or {}) do
     frame:EnableMouse(unlocked)
     frame:SetMovable(unlocked)
-    frame:SetResizable(unlocked)
+    frame:SetResizable(true)
 
     if unlocked then
       frame:SetBackdrop({

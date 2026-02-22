@@ -14,7 +14,7 @@ Ace3\AceConfig-3.0\AceConfig-3.0.xml
 Ace3\AceGUI-3.0\AceGUI-3.0.xml
 Ace3\AceConsole-3.0\AceConsole-3.0.xml
 Ace3\AceDBOptions-3.0\AceDBOptions-3.0.xml
-LibSharedMedia-3.0-v11.2.1\LibSharedMedia-3.0\lib.xml
+LibSharedMedia-3.0\lib.xml
 
 Core\Init.lua
 Core\DB.lua
