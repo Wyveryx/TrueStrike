@@ -60,7 +60,7 @@ function TrueStrike:CreateAreaFrames()
       frame.handle:SetBackdropColor(0.1, 0.7, 1, 0.6)
       frame.handle:RegisterForDrag("LeftButton")
       frame.handle:SetScript("OnDragStart", function()
-        if self.db.profile.scrollAreas.unlocked then
+        if self:GetProfile().framesUnlocked then
           frame:StartMoving()
         end
       end)
@@ -81,7 +81,7 @@ function TrueStrike:CreateAreaFrames()
       frame.resizer:SetBackdropColor(1, 0.6, 0.2, 0.8)
       frame.resizer:RegisterForDrag("LeftButton")
       frame.resizer:SetScript("OnDragStart", function()
-        if self.db.profile.scrollAreas.unlocked then
+        if self:GetProfile().framesUnlocked then
           frame:StartSizing("BOTTOMRIGHT")
         end
       end)
@@ -126,6 +126,35 @@ function TrueStrike:SaveAreaFrameSize(index)
 end
 
 -- Apply persisted settings onto runtime frames.
+function TrueStrike:ApplyLockState()
+  local profile = self:GetProfile()
+  local unlocked = profile.framesUnlocked and true or false
+
+  for _, frame in ipairs(self.areaFrames or {}) do
+    frame:EnableMouse(unlocked)
+    frame:SetMovable(unlocked)
+    frame:SetResizable(unlocked)
+
+    if unlocked then
+      frame:SetBackdrop({
+        bgFile = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
+        edgeSize = 12,
+      })
+      frame:SetBackdropColor(0.03, 0.04, 0.07, 0.35)
+      frame:SetBackdropBorderColor(0.2, 0.7, 1, 0.5)
+      frame.label:Show()
+      frame.handle:Show()
+      frame.resizer:Show()
+    else
+      frame:SetBackdrop(nil)
+      frame.label:Hide()
+      frame.handle:Hide()
+      frame.resizer:Hide()
+    end
+  end
+end
+
 function TrueStrike:RefreshAreaFrames()
   local profile = self:GetProfile()
 
@@ -136,12 +165,10 @@ function TrueStrike:RefreshAreaFrames()
     frame:SetSize(clamp(area.width, 120, 700), clamp(area.height, 60, 400))
     frame.label:SetText(area.name)
 
-    local showHandles = profile.scrollAreas.unlocked
-    frame.handle:SetShown(showHandles)
-    frame.resizer:SetShown(showHandles)
-
     frame:SetShown(area.enabled)
   end
+
+  self:ApplyLockState()
 end
 
 -- Resolve effective font path/size/color, honoring per-area overrides.
