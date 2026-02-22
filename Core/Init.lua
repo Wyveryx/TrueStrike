@@ -51,5 +51,6 @@ function TrueStrike:OnEnable()
   self:InitializeScrollEngine()
   self:InitializeTestHarness()
   self:InitializeShell()
+  self:InitializeMinimapButton()
   self:Print("Loaded. Type /truestrike to open the UI.")
 end

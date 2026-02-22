@@ -30,8 +30,11 @@ local defaults = {
       disableBlizzardFCT = false,
       enableSound = true,
     },
+    framesUnlocked = false,
+    minimap = {
+      hide = false,
+    },
     scrollAreas = {
-      unlocked = true,
       group = {
         scrollMode = "UP",
         justify = "CENTER",
@@ -104,6 +107,15 @@ local defaults = {
 
 function TrueStrike:InitializeDatabase()
   self.db = LibStub("AceDB-3.0"):New("TrueStrikeDB", defaults, true)
+
+  if self.db.profile.framesUnlocked == nil then
+    local legacy = self.db.profile.scrollAreas and self.db.profile.scrollAreas.unlocked
+    self.db.profile.framesUnlocked = legacy and true or false
+  end
+
+  if self.db.profile.scrollAreas then
+    self.db.profile.scrollAreas.unlocked = nil
+  end
 end
 
 function TrueStrike:GetProfile()

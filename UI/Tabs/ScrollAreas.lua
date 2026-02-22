@@ -52,7 +52,7 @@ function TrueStrike:BuildScrollAreasTab()
 
   local unlockToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
   unlockToggle:SetPoint("TOPLEFT", panel, 24, -104)
-  unlockToggle.text:SetText("Unlock area move/resize handles")
+  unlockToggle.text:SetText("Unlock Scroll Areas")
   TrueStrike.UI.AttachTooltip(unlockToggle, "Unlock Handles", {
     "Global (applies to all areas).",
     "Shows drag handle and resize grip on runtime area frames.",
@@ -258,7 +258,8 @@ function TrueStrike:BuildScrollAreasTab()
   end)
 
   unlockToggle:SetScript("OnClick", function(btn)
-    self:GetAllScrollAreaSettings().unlocked = btn:GetChecked() and true or false
+    self:GetProfile().framesUnlocked = btn:GetChecked() and true or false
+    self:ApplyLockState()
     self:RefreshAreaFrames()
   end)
 
@@ -337,7 +338,7 @@ function TrueStrike:BuildScrollAreasTab()
     local lsmLocal = self:SafeGetLSM()
     UIDropDownMenu_SetText(selector, selection)
 
-    unlockToggle:SetChecked(self:GetAllScrollAreaSettings().unlocked)
+    unlockToggle:SetChecked(self:GetProfile().framesUnlocked)
 
     local area, index = getCurrentArea()
     if selection == "Group" then
