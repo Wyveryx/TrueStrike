@@ -66,16 +66,31 @@ function TrueStrike:InitializeShell()
   shell:SetFrameStrata("DIALOG")
   shell:SetBackdrop({
     bgFile = "Interface/Buttons/WHITE8x8",
-    edgeFile = "Interface/Tooltips/UI-Tooltip-Border",
-    edgeSize = 14,
+    edgeFile = "Interface/Buttons/WHITE8x8",
+    edgeSize = 2,
   })
-  shell:SetBackdropColor(0.05, 0.07, 0.12, 0.95)
-  shell:SetBackdropBorderColor(0.18, 0.62, 1, 1)
+  shell:SetBackdropColor(0.04, 0.05, 0.09, 0.97)
+  shell:SetBackdropBorderColor(0.92, 0.46, 0.2, 0.95)
   shell:Hide()
 
   local title = shell:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-  title:SetPoint("TOPLEFT", 16, -16)
-  title:SetText("TrueStrike UI Shell")
+  title:SetPoint("TOPLEFT", 28, -22)
+  title:SetText("TRUESTRIKE // LCARS CONTROL")
+
+
+  local headerBar = CreateFrame("Frame", nil, shell, "BackdropTemplate")
+  headerBar:SetPoint("TOPLEFT", 12, -12)
+  headerBar:SetPoint("TOPRIGHT", -54, -12)
+  headerBar:SetHeight(34)
+  headerBar:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
+  headerBar:SetBackdropColor(0.92, 0.46, 0.2, 0.95)
+
+  local navSpine = CreateFrame("Frame", nil, shell, "BackdropTemplate")
+  navSpine:SetPoint("TOPLEFT", 12, -52)
+  navSpine:SetPoint("BOTTOMLEFT", 12, 12)
+  navSpine:SetWidth(24)
+  navSpine:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
+  navSpine:SetBackdropColor(0.81, 0.36, 0.62, 0.92)
 
   local close = CreateFrame("Button", nil, shell, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", -8, -8)
@@ -84,17 +99,17 @@ function TrueStrike:InitializeShell()
   })
 
   local nav = CreateFrame("Frame", nil, shell, "BackdropTemplate")
-  nav:SetPoint("TOPLEFT", 12, -44)
-  nav:SetPoint("BOTTOMLEFT", 12, 12)
-  nav:SetWidth(190)
+  nav:SetPoint("TOPLEFT", 40, -56)
+  nav:SetPoint("BOTTOMLEFT", 40, 12)
+  nav:SetWidth(214)
   nav:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
-  nav:SetBackdropColor(0.08, 0.11, 0.17, 0.95)
+  nav:SetBackdropColor(0.12, 0.1, 0.17, 0.95)
 
   local content = CreateFrame("Frame", nil, shell, "BackdropTemplate")
-  content:SetPoint("TOPLEFT", nav, "TOPRIGHT", 10, 0)
-  content:SetPoint("BOTTOMRIGHT", -12, 12)
+  content:SetPoint("TOPLEFT", nav, "TOPRIGHT", 16, 0)
+  content:SetPoint("BOTTOMRIGHT", -14, 12)
   content:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
-  content:SetBackdropColor(0.03, 0.04, 0.08, 0.92)
+  content:SetBackdropColor(0.02, 0.03, 0.06, 0.94)
 
   self.shell = shell
   self.navFrame = nav
@@ -105,18 +120,18 @@ function TrueStrike:InitializeShell()
   -- Build left nav and attach hover + click interactions.
   for idx, tabName in ipairs(TAB_ORDER) do
     local btn = CreateFrame("Button", nil, nav, "BackdropTemplate")
-    btn:SetSize(170, 42)
-    btn:SetPoint("TOP", 0, -12 - (idx - 1) * 48)
+    btn:SetSize(188, 46)
+    btn:SetPoint("TOP", 0, -14 - (idx - 1) * 52)
     btn:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
-    btn:SetBackdropColor(0.14, 0.16, 0.22, 0.95)
+    btn:SetBackdropColor(0.23, 0.13, 0.24, 0.96)
 
-    btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     btn.label:SetPoint("CENTER")
     btn.label:SetText(tabName)
 
     btn:SetScript("OnEnter", function()
       if self.activeTab ~= tabName then
-        btn:SetBackdropColor(0.22, 0.27, 0.38, 0.95)
+        btn:SetBackdropColor(0.92, 0.46, 0.2, 0.95)
       end
     end)
 
@@ -150,9 +165,9 @@ function TrueStrike:UpdateTabButtonState(tabName)
   if not btn then return end
 
   if self.activeTab == tabName then
-    btn:SetBackdropColor(0.26, 0.53, 0.92, 0.95)
+    btn:SetBackdropColor(0.95, 0.63, 0.24, 0.98)
   else
-    btn:SetBackdropColor(0.14, 0.16, 0.22, 0.95)
+    btn:SetBackdropColor(0.23, 0.13, 0.24, 0.96)
   end
 end
 
