@@ -1,5 +1,14 @@
--- TrueStrike Core Init
--- Creates the addon object, shared helpers, and lifecycle bootstrap.
+--[[
+TrueStrike - Core Initialization
+Purpose:
+  Create the addon object and orchestrate milestone startup.
+Main responsibilities:
+  - Initialize AceDB state during OnInitialize.
+  - Bring up the UI shell, slash commands, scroll runtime, and test harness.
+  - Provide safe LibSharedMedia access helpers for optional dependency handling.
+Module interactions:
+  - Consumed by all Core/UI files through `ns.TrueStrike`.
+]]
 
 local addonName, ns = ...
 
@@ -15,6 +24,7 @@ TrueStrike.TabKeys = {
   "Diagnostics",
 }
 
+-- LibSharedMedia is optional at runtime. Fail silently and let UI gate controls.
 function TrueStrike:SafeGetLSM()
   local ok, lsm = pcall(LibStub, "LibSharedMedia-3.0", true)
   if ok then
@@ -37,9 +47,9 @@ function TrueStrike:OnInitialize()
 end
 
 function TrueStrike:OnEnable()
-  self:InitializeShell()
   self:InitializeSlashCommands()
   self:InitializeScrollEngine()
   self:InitializeTestHarness()
+  self:InitializeShell()
   self:Print("Loaded. Type /truestrike to open the UI.")
 end

@@ -1,5 +1,15 @@
--- TrueStrike DB
--- Defines AceDB defaults and profile management helpers.
+--[[
+TrueStrike - Database Layer
+Purpose:
+  Define and manage all persisted addon settings through AceDB profiles.
+Main responsibilities:
+  - Provide a complete default schema for general and scroll-area settings.
+  - Expose helper accessors used by UI modules.
+  - Apply group edits across areas and fan out refresh hooks.
+Module interactions:
+  - Initialized from Core/Init:OnInitialize.
+  - Read and written by UI tab modules and ScrollEngine.
+]]
 
 local _, ns = ...
 local TrueStrike = ns.TrueStrike
@@ -8,6 +18,8 @@ local function color(r, g, b, a)
   return { r = r, g = g, b = b, a = a }
 end
 
+-- Profile schema for milestone state persistence.
+-- Group values represent shared defaults for all enabled areas.
 local defaults = {
   profile = {
     lastActiveMainTab = "General",
@@ -116,6 +128,7 @@ function TrueStrike:ForEachArea(func)
   end
 end
 
+-- Group-mode edits propagate to all areas to maintain predictable behavior.
 function TrueStrike:ApplyGroupSetting(key, value)
   self.db.profile.scrollAreas.group[key] = value
   self:ForEachArea(function(_, area)
@@ -123,6 +136,7 @@ function TrueStrike:ApplyGroupSetting(key, value)
   end)
 end
 
+-- Trigger tab/runtime refreshes after profile-level actions.
 function TrueStrike:RefreshAfterDbChange()
   if self.RefreshGeneralTab then
     self:RefreshGeneralTab()

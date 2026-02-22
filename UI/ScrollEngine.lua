@@ -1,13 +1,24 @@
--- TrueStrike Scroll Engine
--- Runtime scroll area frames and lightweight animation for test entries.
+--[[
+TrueStrike - Scroll Engine
+Purpose:
+  Create runtime scroll area frames and animate synthetic entry text.
+Main responsibilities:
+  - Build 3 area frames with drag/resize controls and persistence.
+  - Spawn entry objects and update position/alpha/effects over time.
+  - Handle font and sound lookups through guarded LibSharedMedia calls.
+Module interactions:
+  - Reads/writes area settings from Core/DB accessors.
+  - Called by Scroll Areas tab for refresh/update actions.
+  - Called by TestHarness for synthetic entry spawning.
+]]
 
 local _, ns = ...
 local TrueStrike = ns.TrueStrike
 
 local floor = math.floor
-local random = math.random
 local sin = math.sin
 
+-- Standard entry lifetime in seconds.
 local DURATION = 1.4
 
 local function clamp(v, minv, maxv)
@@ -22,6 +33,7 @@ function TrueStrike:InitializeScrollEngine()
   self:RefreshAreaFrames()
 end
 
+-- Build and cache runtime frames. Each frame owns active entry state.
 function TrueStrike:CreateAreaFrames()
   for i = 1, 3 do
     if not self.areaFrames[i] then
@@ -40,6 +52,7 @@ function TrueStrike:CreateAreaFrames()
       frame.label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
       frame.label:SetPoint("TOP", 0, -6)
 
+      -- Drag handle used when area frames are unlocked.
       frame.handle = CreateFrame("Button", nil, frame, "BackdropTemplate")
       frame.handle:SetSize(20, 20)
       frame.handle:SetPoint("TOPLEFT", 2, -2)
@@ -55,7 +68,12 @@ function TrueStrike:CreateAreaFrames()
         frame:StopMovingOrSizing()
         self:SaveAreaFramePosition(i)
       end)
+      TrueStrike.UI.AttachTooltip(frame.handle, "Move Area", {
+        "Per-area (only this scroll area).",
+        "Drag to reposition when Unlock Handles is enabled.",
+      }, "ANCHOR_LEFT")
 
+      -- Resize grip used when area frames are unlocked.
       frame.resizer = CreateFrame("Button", nil, frame, "BackdropTemplate")
       frame.resizer:SetSize(18, 18)
       frame.resizer:SetPoint("BOTTOMRIGHT", -1, 1)
@@ -71,7 +89,12 @@ function TrueStrike:CreateAreaFrames()
         frame:StopMovingOrSizing()
         self:SaveAreaFrameSize(i)
       end)
+      TrueStrike.UI.AttachTooltip(frame.resizer, "Resize Area", {
+        "Per-area (only this scroll area).",
+        "Drag to resize when Unlock Handles is enabled.",
+      }, "ANCHOR_LEFT")
 
+      -- Continuous update loop is active only when entries exist in the frame.
       frame:SetScript("OnUpdate", function(_, elapsed)
         self:UpdateAreaEntries(frame, i, elapsed)
       end)
@@ -102,6 +125,7 @@ function TrueStrike:SaveAreaFrameSize(index)
   area.height = floor(frame:GetHeight() + 0.5)
 end
 
+-- Apply persisted settings onto runtime frames.
 function TrueStrike:RefreshAreaFrames()
   local profile = self:GetProfile()
 
@@ -120,6 +144,7 @@ function TrueStrike:RefreshAreaFrames()
   end
 end
 
+-- Resolve effective font path/size/color, honoring per-area overrides.
 function TrueStrike:GetAreaFontSettings(area)
   local general = self:GetGeneralSettings()
   local source = area.useFontOverride and area or general
@@ -139,6 +164,7 @@ function TrueStrike:GetAreaFontSettings(area)
   return fontPath, fontSize, fontColor
 end
 
+-- Play crit sound only when global and per-area gates are both satisfied.
 function TrueStrike:PlayCritSound(area)
   local general = self:GetGeneralSettings()
   if not general.enableSound or not area.critSoundEnabled then
@@ -183,7 +209,7 @@ function TrueStrike:SpawnTestEntry(areaIndex, text, isCrit)
   entry.fs:SetFont(fontPath, size, "OUTLINE")
   entry.fs:SetTextColor(col.r or 1, col.g or 1, col.b or 1, col.a or 1)
 
-  local entryData = {
+  table.insert(frame.activeEntries, {
     frame = entry,
     fs = entry.fs,
     isCrit = isCrit,
@@ -193,15 +219,14 @@ function TrueStrike:SpawnTestEntry(areaIndex, text, isCrit)
     critEffect = area.critEffect,
     baseX = xAnchor,
     startY = -frame:GetHeight() * 0.25,
-  }
-
-  table.insert(frame.activeEntries, entryData)
+  })
 
   if isCrit then
     self:PlayCritSound(area)
   end
 end
 
+-- Entry lifecycle: move/animate until progress reaches 1, then recycle.
 function TrueStrike:UpdateAreaEntries(areaFrame, areaIndex, _elapsed)
   if not areaFrame:IsShown() then return end
 
@@ -219,6 +244,7 @@ function TrueStrike:UpdateAreaEntries(areaFrame, areaIndex, _elapsed)
       if entry.mode == "DOWN" then
         yOffset = (1 - progress) * areaFrame:GetHeight() * 0.55
       elseif entry.mode == "PARABOLA" then
+        -- Parabolic arc: 4p(1-p) peaks in the middle and returns toward baseline.
         local peak = 4 * progress * (1 - progress)
         yOffset = (peak - progress * 0.5) * areaFrame:GetHeight() * 0.8
       else
@@ -227,16 +253,20 @@ function TrueStrike:UpdateAreaEntries(areaFrame, areaIndex, _elapsed)
 
       local xOffset = entry.baseX
       if entry.mode == "PARABOLA" then
+        -- Add slight horizontal drift for arc readability.
         xOffset = xOffset + (progress - 0.5) * 42
       end
 
       if entry.isCrit then
         if entry.critEffect == "WIGGLE" then
+          -- Oscillate x-position to create short, jittery emphasis.
           xOffset = xOffset + sin(progress * 34) * 7
         elseif entry.critEffect == "POW" then
+          -- Start bigger and settle to normal scale as the entry ages.
           local scale = 1 + (0.45 * (1 - progress))
           entry.fs:SetScale(scale)
         elseif entry.critEffect == "FLASH" then
+          -- Pulse alpha on crit entries for high-contrast visibility.
           local alpha = 0.65 + 0.35 * sin(progress * 28)
           entry.fs:SetAlpha(alpha)
         end
@@ -244,8 +274,7 @@ function TrueStrike:UpdateAreaEntries(areaFrame, areaIndex, _elapsed)
 
       entry.fs:ClearAllPoints()
       local area = self:GetScrollAreaSettings(areaIndex)
-      local anchor = area.justify
-      entry.fs:SetPoint(anchor, xOffset, entry.startY + yOffset)
+      entry.fs:SetPoint(area.justify, xOffset, entry.startY + yOffset)
       entry.fs:SetJustifyH(area.justify)
       entry.frame:SetAlpha(1 - progress * 0.7)
     end

@@ -1,5 +1,14 @@
--- TrueStrike Slash Commands
--- Implements /truestrike and /ts toggling behavior.
+--[[
+TrueStrike - Slash Commands
+Purpose:
+  Register and process simple chat commands for shell visibility.
+Main responsibilities:
+  - Register /truestrike and /ts aliases.
+  - Support optional `show` and `hide` subcommands.
+  - Toggle shell visibility by default.
+Module interactions:
+  - Delegates shell actions to UI/Shell methods.
+]]
 
 local _, ns = ...
 local TrueStrike = ns.TrueStrike

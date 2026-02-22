@@ -1,5 +1,15 @@
--- TrueStrike General Tab
--- Master settings and AceDB profile operations.
+--[[
+TrueStrike - General Tab
+Purpose:
+  Expose global settings and profile operations for this UI-shell milestone.
+Main responsibilities:
+  - Edit master font/font-size/color and global sound toggle.
+  - Store (but not apply) Blizzard FCT disable preference.
+  - Provide simple AceDB profile create/copy/reset/delete actions.
+Module interactions:
+  - Reads/writes Core/DB profile values.
+  - Uses shared tooltip helper from UI/Tooltip.lua.
+]]
 
 local _, ns = ...
 local TrueStrike = ns.TrueStrike
@@ -31,9 +41,14 @@ function TrueStrike:BuildGeneralTab()
     self:PrintMissingLSMOnce()
   end
 
+  -- Master font controls (global scope).
   makeLabel(panel, "Master Font", "TOPLEFT", panel, 24, -72)
   local fontDropdown = CreateFrame("Frame", "TrueStrikeGeneralFontDropdown", panel, "UIDropDownMenuTemplate")
   fontDropdown:SetPoint("TOPLEFT", panel, 14, -88)
+  TrueStrike.UI.AttachTooltip(fontDropdown, "Master Font", {
+    "Global (applies to all areas).",
+    "Select the default font for entries unless per-area override is enabled.",
+  })
 
   makeLabel(panel, "Master Font Size", "TOPLEFT", panel, 24, -136)
   local sizeSlider = CreateFrame("Slider", "TrueStrikeMasterFontSizeSlider", panel, "OptionsSliderTemplate")
@@ -43,31 +58,52 @@ function TrueStrike:BuildGeneralTab()
   sizeSlider:SetValueStep(1)
   _G[sizeSlider:GetName() .. "Low"]:SetText("8")
   _G[sizeSlider:GetName() .. "High"]:SetText("64")
+  TrueStrike.UI.AttachTooltip(sizeSlider, "Master Font Size", {
+    "Global (applies to all areas).",
+    "Adjusts default text size for scroll entries.",
+  })
 
   local colorButton = makeButton(panel, "Master Font Color", 140, 24, "TOPLEFT", panel, 24, -224)
+  TrueStrike.UI.AttachTooltip(colorButton, "Master Font Color", {
+    "Global (applies to all areas).",
+    "Pick the default text color when per-area override is disabled.",
+  })
 
   local disableFCT = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
   disableFCT:SetPoint("TOPLEFT", panel, 24, -264)
   disableFCT.text:SetText("Disable Blizzard floating combat text (store only)")
+  TrueStrike.UI.AttachTooltip(disableFCT, "Disable Blizzard FCT", {
+    "Global (applies to all areas).",
+    "Stored preference only in this milestone; no runtime system toggle yet.",
+  })
 
   local enableSound = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
   enableSound:SetPoint("TOPLEFT", panel, 24, -294)
   enableSound.text:SetText("Enable sound")
+  TrueStrike.UI.AttachTooltip(enableSound, "Enable Sound", {
+    "Global (applies to all areas).",
+    "Master gate for crit sound playback.",
+  })
 
+  -- Profile operation controls.
   makeLabel(panel, "Profiles", "TOPLEFT", panel, 24, -340):SetFontObject("GameFontHighlight")
-
   local newBtn = makeButton(panel, "New", 84, 24, "TOPLEFT", panel, 24, -364)
   local copyBtn = makeButton(panel, "Copy From", 84, 24, "TOPLEFT", newBtn, "TOPRIGHT", 8, 0)
   local resetBtn = makeButton(panel, "Reset", 84, 24, "TOPLEFT", copyBtn, "TOPRIGHT", 8, 0)
   local delBtn = makeButton(panel, "Delete", 84, 24, "TOPLEFT", resetBtn, "TOPRIGHT", 8, 0)
 
-  panel.widgets = {
-    fontDropdown = fontDropdown,
-    sizeSlider = sizeSlider,
-    colorButton = colorButton,
-    disableFCT = disableFCT,
-    enableSound = enableSound,
-  }
+  TrueStrike.UI.AttachTooltip(newBtn, "New Profile", {
+    "Creates and switches to a new profile by name.",
+  })
+  TrueStrike.UI.AttachTooltip(copyBtn, "Copy Profile", {
+    "Copies settings from another profile into the active profile.",
+  })
+  TrueStrike.UI.AttachTooltip(resetBtn, "Reset Profile", {
+    "Resets the active profile to default values.",
+  })
+  TrueStrike.UI.AttachTooltip(delBtn, "Delete Profile", {
+    "Deletes a named profile that is not currently active.",
+  })
 
   UIDropDownMenu_SetWidth(fontDropdown, 230)
   UIDropDownMenu_Initialize(fontDropdown, function(_, level)
@@ -97,18 +133,19 @@ function TrueStrike:BuildGeneralTab()
     local function setColor(new)
       color.r, color.g, color.b, color.a = new.r, new.g, new.b, new.a
     end
+
     ColorPickerFrame:SetupColorPickerAndShow({
       r = color.r, g = color.g, b = color.b, opacity = 1 - color.a,
       hasOpacity = true,
       swatchFunc = function()
-        local info = ColorPickerFrame:GetColorAlpha()
+        local opacity = ColorPickerFrame:GetColorAlpha()
         local r, g, b = ColorPickerFrame:GetColorRGB()
-        setColor({ r = r, g = g, b = b, a = 1 - info })
+        setColor({ r = r, g = g, b = b, a = 1 - opacity })
       end,
       opacityFunc = function()
-        local info = ColorPickerFrame:GetColorAlpha()
+        local opacity = ColorPickerFrame:GetColorAlpha()
         local r, g, b = ColorPickerFrame:GetColorRGB()
-        setColor({ r = r, g = g, b = b, a = 1 - info })
+        setColor({ r = r, g = g, b = b, a = 1 - opacity })
       end,
       cancelFunc = function(previous)
         setColor({ r = previous.r, g = previous.g, b = previous.b, a = previous.a })
@@ -125,6 +162,7 @@ function TrueStrike:BuildGeneralTab()
     self:GetGeneralSettings().enableSound = btn:GetChecked() and true or false
   end)
 
+  -- Shared prompt helper for profile operations requiring profile names.
   local function promptProfile(titleText, acceptText, callback)
     StaticPopupDialogs["TRUESTRIKE_PROFILE_INPUT"] = {
       text = titleText,
@@ -181,8 +219,6 @@ function TrueStrike:BuildGeneralTab()
   end)
 
   function self:RefreshGeneralTab()
-    if not panel:IsShown() and self.activeTab ~= "General" then return end
-
     local settings = self:GetGeneralSettings()
     UIDropDownMenu_SetText(fontDropdown, settings.masterFont or "Unavailable")
     fontDropdown:EnableMouse(lsm ~= nil)

@@ -1,5 +1,15 @@
--- TrueStrike Test Harness
--- Spawns synthetic normal/crit events for validating scroll behavior.
+--[[
+TrueStrike - Test Harness
+Purpose:
+  Provide synthetic event generation for validating UI-only scroll behavior.
+Main responsibilities:
+  - Schedule short bursts of normal or crit test entries.
+  - Route generated entries to all enabled scroll areas.
+  - Stop active scheduling and clear existing entries on demand.
+Module interactions:
+  - Triggered from Scroll Areas tab buttons.
+  - Uses ScrollEngine:SpawnTestEntry and ScrollEngine:StopAllEntries.
+]]
 
 local _, ns = ...
 local TrueStrike = ns.TrueStrike
@@ -8,6 +18,7 @@ function TrueStrike:InitializeTestHarness()
   self.activeTicker = nil
 end
 
+-- Spawn 10 entries at 0.15s intervals for quick UI validation.
 function TrueStrike:RunTestSequence(isCrit)
   self:StopTestSequence()
 
@@ -38,5 +49,6 @@ function TrueStrike:StopTestSequence()
     self.activeTicker:Cancel()
     self.activeTicker = nil
   end
+
   self:StopAllEntries()
 end

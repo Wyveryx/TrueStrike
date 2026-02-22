@@ -4,6 +4,7 @@
 ## Author: TrueStrike Team
 ## Version: 0.1.0
 ## SavedVariables: TrueStrikeDB
+## OptionalDeps: Ace3, LibSharedMedia-3.0
 
 Ace3\LibStub\LibStub.lua
 Ace3\CallbackHandler-1.0\CallbackHandler-1.0.lua
@@ -22,6 +23,7 @@ Core\Slash.lua
 
 UI\ScrollEngine.lua
 UI\TestHarness.lua
+UI\Tooltip.lua
 UI\Shell.lua
 UI\Tabs\General.lua
 UI\Tabs\ScrollAreas.lua

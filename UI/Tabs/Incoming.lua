@@ -1,4 +1,13 @@
--- TrueStrike Incoming Tab Placeholder
+--[[
+TrueStrike - Placeholder Tab
+Purpose:
+  Provide a stable navigable panel for milestone scope completeness.
+Main responsibilities:
+  - Render heading and placeholder text.
+  - Avoid runtime errors when switching tabs.
+Module interactions:
+  - Registered by UI/Shell tab construction.
+]]
 
 local _, ns = ...
 local TrueStrike = ns.TrueStrike

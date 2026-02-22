@@ -1,5 +1,16 @@
--- TrueStrike Scroll Areas Tab
--- Area selector, runtime toggles, per-area settings, and test harness controls.
+--[[
+TrueStrike - Scroll Areas Tab
+Purpose:
+  Configure group/per-area runtime scroll settings and expose test harness controls.
+Main responsibilities:
+  - Edit area enablement, naming, font overrides, motion/justify/crit settings.
+  - Toggle lock state used by runtime move/resize controls.
+  - Trigger synthetic normal/crit entry tests and stop behavior.
+Module interactions:
+  - Persists settings through Core/DB accessors.
+  - Calls UI/ScrollEngine refresh functions for immediate runtime updates.
+  - Calls UI/TestHarness run/stop methods.
+]]
 
 local _, ns = ...
 local TrueStrike = ns.TrueStrike
@@ -34,26 +45,50 @@ function TrueStrike:BuildScrollAreasTab()
   local selector = CreateFrame("Frame", "TrueStrikeAreaSelectorDropdown", panel, "UIDropDownMenuTemplate")
   selector:SetPoint("TOPLEFT", panel, 14, -52)
   makeLabel(panel, "Edit target", "TOPLEFT", panel, 24, -70)
+  TrueStrike.UI.AttachTooltip(selector, "Edit Target", {
+    "Group mode applies to all enabled areas; per-area overrides take precedence.",
+    "Choose Group, Area1, Area2, or Area3.",
+  })
 
   local unlockToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
   unlockToggle:SetPoint("TOPLEFT", panel, 24, -104)
   unlockToggle.text:SetText("Unlock area move/resize handles")
+  TrueStrike.UI.AttachTooltip(unlockToggle, "Unlock Handles", {
+    "Global (applies to all areas).",
+    "Shows drag handle and resize grip on runtime area frames.",
+  })
 
   local enabledToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
   enabledToggle:SetPoint("TOPLEFT", panel, 24, -134)
   enabledToggle.text:SetText("Enabled")
+  TrueStrike.UI.AttachTooltip(enabledToggle, "Enabled", {
+    "Per-area (only this scroll area).",
+    "In Group mode this toggles all enabled areas together.",
+  })
 
   local nameBox = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
   nameBox:SetSize(180, 24)
   nameBox:SetAutoFocus(false)
   nameBox:SetPoint("TOPLEFT", panel, 24, -166)
+  TrueStrike.UI.AttachTooltip(nameBox, "Area Name", {
+    "Per-area (only this scroll area).",
+    "Press Enter to save a display name for the runtime frame.",
+  })
 
   local overrideToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
   overrideToggle:SetPoint("TOPLEFT", panel, 24, -198)
   overrideToggle.text:SetText("Use per-area font override")
+  TrueStrike.UI.AttachTooltip(overrideToggle, "Per-Area Font Override", {
+    "Per-area (only this scroll area).",
+    "When enabled, this area ignores Global master font settings.",
+  })
 
   local fontDropdown = CreateFrame("Frame", "TrueStrikeAreaFontDropdown", panel, "UIDropDownMenuTemplate")
   fontDropdown:SetPoint("TOPLEFT", panel, 14, -224)
+  TrueStrike.UI.AttachTooltip(fontDropdown, "Area Font", {
+    "Per-area (only this scroll area).",
+    "Requires per-area font override to be enabled.",
+  })
 
   local fontSlider = CreateFrame("Slider", "TrueStrikeAreaFontSizeSlider", panel, "OptionsSliderTemplate")
   fontSlider:SetPoint("TOPLEFT", panel, 24, -272)
@@ -62,31 +97,70 @@ function TrueStrike:BuildScrollAreasTab()
   fontSlider:SetValueStep(1)
   _G[fontSlider:GetName() .. "Low"]:SetText("8")
   _G[fontSlider:GetName() .. "High"]:SetText("64")
+  TrueStrike.UI.AttachTooltip(fontSlider, "Area Font Size", {
+    "Per-area (only this scroll area).",
+    "Requires per-area font override to be enabled.",
+  })
 
   local colorBtn = makeButton(panel, "Area Font Color", 130, 24, "TOPLEFT", panel, 24, -334)
+  TrueStrike.UI.AttachTooltip(colorBtn, "Area Font Color", {
+    "Per-area (only this scroll area).",
+    "Requires per-area font override to be enabled.",
+  })
 
   local modeDD = CreateFrame("Frame", "TrueStrikeAreaModeDropdown", panel, "UIDropDownMenuTemplate")
   modeDD:SetPoint("TOPLEFT", panel, 292, -88)
   makeLabel(panel, "Scroll Mode", "TOPLEFT", panel, 302, -74)
+  TrueStrike.UI.AttachTooltip(modeDD, "Scroll Mode", {
+    "Per-area (only this scroll area).",
+    "Select UP, DOWN, or PARABOLA motion path.",
+  })
 
   local justifyDD = CreateFrame("Frame", "TrueStrikeAreaJustifyDropdown", panel, "UIDropDownMenuTemplate")
   justifyDD:SetPoint("TOPLEFT", panel, 292, -150)
   makeLabel(panel, "Justify", "TOPLEFT", panel, 302, -136)
+  TrueStrike.UI.AttachTooltip(justifyDD, "Justify", {
+    "Per-area (only this scroll area).",
+    "Align entries left, center, or right inside the area.",
+  })
 
   local critDD = CreateFrame("Frame", "TrueStrikeAreaCritEffectDropdown", panel, "UIDropDownMenuTemplate")
   critDD:SetPoint("TOPLEFT", panel, 292, -212)
   makeLabel(panel, "Crit Effect", "TOPLEFT", panel, 302, -198)
+  TrueStrike.UI.AttachTooltip(critDD, "Crit Effect", {
+    "Per-area (only this scroll area).",
+    "Choose NONE, WIGGLE, POW, or FLASH for synthetic crit entries.",
+  })
 
   local critSoundToggle = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
   critSoundToggle:SetPoint("TOPLEFT", panel, 302, -254)
   critSoundToggle.text:SetText("Crit sound enabled")
+  TrueStrike.UI.AttachTooltip(critSoundToggle, "Crit Sound Enabled", {
+    "Per-area (only this scroll area).",
+    "Requires Sound enabled in General.",
+  })
 
   local soundDD = CreateFrame("Frame", "TrueStrikeAreaSoundDropdown", panel, "UIDropDownMenuTemplate")
   soundDD:SetPoint("TOPLEFT", panel, 292, -286)
+  TrueStrike.UI.AttachTooltip(soundDD, "Crit Sound", {
+    "Per-area (only this scroll area).",
+    "Requires Sound enabled in General.",
+  })
 
   local testNormal = makeButton(panel, "Test Normal", 110, 28, "BOTTOMLEFT", panel, 24, 24)
   local testCrit = makeButton(panel, "Test Crit", 110, 28, "LEFT", testNormal, "RIGHT", 8, 0)
   local stopBtn = makeButton(panel, "Stop", 110, 28, "LEFT", testCrit, "RIGHT", 8, 0)
+  TrueStrike.UI.AttachTooltip(testNormal, "Test Normal", {
+    "Spawns synthetic entries for UI testing only.",
+    "Emits 10 non-crit events across all enabled areas.",
+  })
+  TrueStrike.UI.AttachTooltip(testCrit, "Test Crit", {
+    "Spawns synthetic entries for UI testing only.",
+    "Emits 10 crit events and triggers configured crit effects.",
+  })
+  TrueStrike.UI.AttachTooltip(stopBtn, "Stop Test", {
+    "Stops synthetic test scheduling and clears active entries.",
+  })
 
   local selection = "Group"
 
@@ -96,6 +170,7 @@ function TrueStrike:BuildScrollAreasTab()
     return nil, nil
   end
 
+  -- Apply per-area changes or fan out group edits to all areas.
   local function apply(key, value)
     if selection == "Group" then
       self:ApplyGroupSetting(key, value)
@@ -151,9 +226,9 @@ function TrueStrike:BuildScrollAreasTab()
   end)
 
   setupDropdown(fontDropdown, 190, function(_, level)
-    local lsm = self:SafeGetLSM()
-    if not lsm then return end
-    for _, key in ipairs(lsm:List("font") or {}) do
+    local lsmLocal = self:SafeGetLSM()
+    if not lsmLocal then return end
+    for _, key in ipairs(lsmLocal:List("font") or {}) do
       local info = UIDropDownMenu_CreateInfo()
       info.text = key
       info.value = key
@@ -167,9 +242,9 @@ function TrueStrike:BuildScrollAreasTab()
   end)
 
   setupDropdown(soundDD, 190, function(_, level)
-    local lsm = self:SafeGetLSM()
-    if not lsm then return end
-    for _, key in ipairs(lsm:List("sound") or {}) do
+    local lsmLocal = self:SafeGetLSM()
+    if not lsmLocal then return end
+    for _, key in ipairs(lsmLocal:List("sound") or {}) do
       local info = UIDropDownMenu_CreateInfo()
       info.text = key
       info.value = key
@@ -228,19 +303,20 @@ function TrueStrike:BuildScrollAreasTab()
   colorBtn:SetScript("OnClick", function()
     local area = getCurrentArea()
     if not area then return end
+
     local c = area.fontColor
     ColorPickerFrame:SetupColorPickerAndShow({
       r = c.r, g = c.g, b = c.b, opacity = 1 - c.a,
       hasOpacity = true,
       swatchFunc = function()
-        local alpha = ColorPickerFrame:GetColorAlpha()
+        local opacity = ColorPickerFrame:GetColorAlpha()
         local r, g, b = ColorPickerFrame:GetColorRGB()
-        c.r, c.g, c.b, c.a = r, g, b, 1 - alpha
+        c.r, c.g, c.b, c.a = r, g, b, 1 - opacity
       end,
       opacityFunc = function()
-        local alpha = ColorPickerFrame:GetColorAlpha()
+        local opacity = ColorPickerFrame:GetColorAlpha()
         local r, g, b = ColorPickerFrame:GetColorRGB()
-        c.r, c.g, c.b, c.a = r, g, b, 1 - alpha
+        c.r, c.g, c.b, c.a = r, g, b, 1 - opacity
       end,
       previousValues = { r = c.r, g = c.g, b = c.b, a = c.a },
       cancelFunc = function(prev)
@@ -258,7 +334,7 @@ function TrueStrike:BuildScrollAreasTab()
   stopBtn:SetScript("OnClick", function() self:StopTestSequence() end)
 
   function self:RefreshScrollAreasTab()
-    local lsm = self:SafeGetLSM()
+    local lsmLocal = self:SafeGetLSM()
     UIDropDownMenu_SetText(selector, selection)
 
     unlockToggle:SetChecked(self:GetAllScrollAreaSettings().unlocked)
@@ -286,7 +362,7 @@ function TrueStrike:BuildScrollAreasTab()
       overrideToggle:Enable()
       overrideToggle:SetChecked(area.useFontOverride)
 
-      local fontEnabled = lsm and area.useFontOverride
+      local fontEnabled = lsmLocal and area.useFontOverride
       fontDropdown:EnableMouse(fontEnabled)
       fontSlider:SetEnabled(fontEnabled)
       colorBtn:SetEnabled(fontEnabled)
@@ -300,8 +376,8 @@ function TrueStrike:BuildScrollAreasTab()
       UIDropDownMenu_SetText(soundDD, area.critSoundKey)
     end
 
-    soundDD:EnableMouse(lsm ~= nil)
-    if not lsm then
+    soundDD:EnableMouse(lsmLocal ~= nil)
+    if not lsmLocal then
       self:PrintMissingLSMOnce()
     end
 
