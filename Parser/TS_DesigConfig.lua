@@ -23,6 +23,15 @@ TS_DesigConfig.TRUESTRIKE_CLASS_DB_PALADIN = false
 TS_DesigConfig.TRUESTRIKE_CLASS_DB_MONK = false
 TS_DesigConfig.DEBUG_LOGGING = false
 
+TS_DesigConfig.WATCHED_UNITS = {
+    player = true,
+    target = true,
+    party1 = true,
+    party2 = true,
+    party3 = true,
+    party4 = true,
+}
+
 local function SafeLog(prefix, msg)
     if not TS_DesigConfig.DEBUG_LOGGING then
         return

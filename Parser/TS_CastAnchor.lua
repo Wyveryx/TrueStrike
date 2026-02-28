@@ -50,9 +50,14 @@ function TS_CastAnchor.OnSpellcastSent(unit, target, castGUID, spellID)
     LogAnchor(spellID, castGUID, _pendingCasts[castGUID].target)
 end
 
-function TS_CastAnchor.OnSpellcastSucceeded(unit, target, castGUID, spellID)
+function TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID, ...)
     if not Enabled() or unit ~= "player" then
         return
+    end
+
+    if not castGUID and type(spellID) == "string" then
+        castGUID = spellID
+        spellID = select(1, ...)
     end
 
     local pending = _pendingCasts[castGUID]
@@ -72,7 +77,7 @@ function TS_CastAnchor.OnSpellcastSucceeded(unit, target, castGUID, spellID)
     end
 
     _pendingCasts[castGUID] = nil
-    LogAnchor(spellID, castGUID, TS_Taint.SafeStr(target))
+    LogAnchor(spellID, castGUID, pending.target)
 end
 
 function TS_CastAnchor.OnSpellcastFailed(unit, target, castGUID, spellID)
@@ -89,6 +94,40 @@ function TS_CastAnchor.OnSpellcastInterrupted(unit, target, castGUID, spellID)
     _pendingCasts[castGUID] = nil
 end
 
+
+function TS_CastAnchor.OnUnitAura(unit, updateInfo, spellbookCache)
+    local watched = TS_DesigConfig and TS_DesigConfig.WATCHED_UNITS
+    if not (watched and watched[unit]) then
+        return
+    end
+
+    if unit == "player" and InCombatLockdown and InCombatLockdown() then
+        TS_Taint.DetectNonSelfAuras(updateInfo, spellbookCache, function(spellIDNum, spellIDStr)
+            if not TS_Registry.GetDesignation(spellIDNum) then
+                TS_Registry.RegisterSpell(spellIDNum, spellIDStr, TS_Registry.DESIGNATION.UNKNOWN)
+            end
+        end)
+        TS_SlotManager.PruneExpiredSlots()
+        return
+    end
+
+    local scanned = TS_AuraScanner.ScanUnit(unit) or {}
+    for _, aura in ipairs(scanned) do
+        if TS_Registry.GetDesignation(aura.spellID) == TS_Registry.DESIGNATION.HOT then
+            if not TS_SlotManager.FindHotSlot(aura.spellID, unit) then
+                TS_SlotManager.NewHotSlot(aura.spellID, aura.name, unit, aura.expirationTime, aura.duration, "AURA_SCAN")
+            end
+        end
+    end
+
+    TS_SlotManager.PruneExpiredSlots()
+end
+
+function TS_CastAnchor.Reset()
+    _pendingCasts = {}
+    _lastSucceededSpellID = nil
+    _lastSucceededTime = nil
+end
 function TS_CastAnchor.PruneStale(maxAge)
     if not Enabled() then
         return
