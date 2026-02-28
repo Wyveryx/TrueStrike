@@ -16,6 +16,101 @@ local Addon = TSBT.Addon
 ------------------------------------------------------------------------
 local pendingParserEnable = false
 local pendingParserDisable = false
+local pendingDesignationSafeInit = false
+local designationEventFrame = nil
+
+------------------------------------------------------------------------
+-- Designation Engine safe-init wiring (register only out of combat)
+------------------------------------------------------------------------
+local function DispatchDesignationEvent(event, ...)
+    if event == "UNIT_SPELLCAST_SENT" then
+        local unit, target, castGUID, spellID = ...
+        if unit == "player" and TS_CastAnchor and TS_CastAnchor.OnSpellcastSent then
+            TS_CastAnchor.OnSpellcastSent(unit, target, castGUID, spellID)
+        end
+        return
+    end
+
+    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+        local unit, castGUID, spellID = ...
+        if unit == "player" and TS_CastAnchor and TS_CastAnchor.OnSpellcastSucceeded then
+            TS_CastAnchor.OnSpellcastSucceeded(unit, nil, castGUID, spellID)
+        end
+        return
+    end
+
+    if event == "UNIT_SPELLCAST_FAILED" then
+        local unit, castGUID, spellID = ...
+        if unit == "player" and TS_CastAnchor and TS_CastAnchor.OnSpellcastFailed then
+            TS_CastAnchor.OnSpellcastFailed(unit, castGUID, spellID)
+        end
+        return
+    end
+
+    if event == "UNIT_SPELLCAST_INTERRUPTED" then
+        local unit, castGUID, spellID = ...
+        if unit == "player" and TS_CastAnchor and TS_CastAnchor.OnSpellcastInterrupted then
+            TS_CastAnchor.OnSpellcastInterrupted(unit, castGUID, spellID)
+        end
+        return
+    end
+
+    if event == "UNIT_AURA" then
+        local unit = ...
+        if TS_AuraScanner and TS_AuraScanner.OnUnitAura then
+            TS_AuraScanner.OnUnitAura(unit)
+        end
+        return
+    end
+
+    if event == "SPELLS_CHANGED" then
+        if TS_SpellbookScanner and TS_SpellbookScanner.OnSpellsChanged then
+            TS_SpellbookScanner.OnSpellsChanged()
+        end
+    end
+end
+
+local function RegisterDesignationSafeInit()
+    if designationEventFrame then return true end
+
+    if InCombatLockdown() then
+        pendingDesignationSafeInit = true
+        return false
+    end
+
+    designationEventFrame = CreateFrame("Frame")
+    designationEventFrame:RegisterEvent("UNIT_SPELLCAST_SENT")
+    designationEventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+    designationEventFrame:RegisterEvent("UNIT_SPELLCAST_FAILED")
+    designationEventFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+    designationEventFrame:RegisterEvent("UNIT_AURA")
+    designationEventFrame:RegisterEvent("SPELLS_CHANGED")
+    designationEventFrame:SetScript("OnEvent", function(_, event, ...)
+        DispatchDesignationEvent(event, ...)
+    end)
+
+    pendingDesignationSafeInit = false
+
+    local desigConfig = TS_DesigConfig
+
+    if desigConfig and desigConfig.TRUESTRIKE_KNOWN_SPELLS_OVERRIDE
+        and TS_Registry and TS_Registry.SeedKnownSpells then
+        TS_Registry.SeedKnownSpells()
+    end
+
+    if desigConfig and desigConfig.TRUESTRIKE_SPELLBOOK_SCAN
+        and TS_SpellbookScanner and TS_SpellbookScanner.ScanSpellbook then
+        TS_SpellbookScanner.ScanSpellbook()
+    end
+
+    if desigConfig and desigConfig.TRUESTRIKE_PRECOMBAT_AURA_SCAN
+        and not InCombatLockdown()
+        and TS_AuraScanner and TS_AuraScanner.ScanAllWatchedUnits then
+        TS_AuraScanner.ScanAllWatchedUnits()
+    end
+
+    return true
+end
 
 ------------------------------------------------------------------------
 -- Apply Blizzard FCT CVar Settings
@@ -121,6 +216,10 @@ combatFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 combatFrame:SetScript("OnEvent", function(self, event)
     if event == "PLAYER_REGEN_ENABLED" then
         -- Combat ended, retry any pending operations
+        if pendingDesignationSafeInit then
+            RegisterDesignationSafeInit()
+        end
+
         if pendingParserEnable then
             EnableParsers()
         elseif pendingParserDisable then
@@ -204,6 +303,13 @@ function Addon:OnEnable()
 
         if masterEnabled then
             if TSBT.Core and TSBT.Core.Enable then TSBT.Core:Enable() end
+
+            -- Register designation engine safe-init handlers and run init sequence.
+            -- This registration must occur in PLAYER_ENTERING_WORLD flow and never during combat lockdown.
+            local safeInitRegistered = RegisterDesignationSafeInit()
+            if not safeInitRegistered then
+                Addon:Print("In combat - designation safe-init will register after combat ends.")
+            end
 
             -- Enable parsers with combat lockdown protection
             local success = EnableParsers()
