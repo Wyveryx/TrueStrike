@@ -28,7 +28,7 @@ local HealAttr = TSBT.Parser.HealAttribution
 -- Module State
 ------------------------------------------------------------------------
 HealAttr._enabled = false
-HealAttr._frame = nil
+HealAttr._frame = CreateFrame("Frame")
 
 -- Cast-time spell tracking (UNIT_SPELLCAST_START)
 HealAttr._pendingCast = nil
@@ -389,11 +389,6 @@ end
 ------------------------------------------------------------------------
 function HealAttr:Enable()
     if self._enabled then return end
-
-    -- Create frame if needed
-    if not self._frame then
-        self._frame = CreateFrame("Frame")
-    end
 
     -- Register events
     self._frame:RegisterEvent("COMBAT_TEXT_UPDATE")
