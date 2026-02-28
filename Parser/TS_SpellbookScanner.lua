@@ -3,6 +3,7 @@ local ADDON_NAME, TSBT = ...
 TS_SpellbookScanner = TS_SpellbookScanner or {}
 
 local _spellbookScanned = false
+local _spellbookCache = {}
 
 local function RegisterSpellDesignation(spellID, desig)
     if not spellID then
@@ -16,12 +17,15 @@ local function RegisterSpellDesignation(spellID, desig)
     local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spellID)
     local name = info and info.name or tostring(spellID)
     TS_Registry.RegisterSpell(spellID, name, desig)
+    _spellbookCache[spellID] = true
 end
 
 function TS_SpellbookScanner.ScanSpellbook()
     if not (TS_DesigConfig and TS_DesigConfig.TRUESTRIKE_SPELLBOOK_SCAN) then
         return
     end
+
+    _spellbookCache = {}
 
     local skillLineCount = C_SpellBook.GetNumSpellBookSkillLines()
     for i = 1, skillLineCount do
@@ -61,6 +65,11 @@ function TS_SpellbookScanner.OnSpellsChanged()
 
     _spellbookScanned = false
     TS_SpellbookScanner.ScanSpellbook()
+end
+
+
+function TS_SpellbookScanner.GetCache()
+    return _spellbookCache or {}
 end
 
 --[[ FLAGGED: Spellbook scan on PLAYER_ENTERING_WORLD

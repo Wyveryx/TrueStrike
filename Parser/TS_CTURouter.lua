@@ -50,7 +50,7 @@ function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpel
         if TS_Registry.GetDesignation(lastSpellID) == expectedDesig then
             local slot = TS_SlotManager.FindHotSlot(lastSpellID, "player")
             if slot then
-                return { slotID = slot.slotID, spellID = lastSpellID, confidence = "HIGH" }
+                return slot.slotID, "HIGH"
             end
         end
     end
@@ -71,7 +71,7 @@ function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpel
                 confidence = confidence,
                 deltaPrev = 0,
             })
-            return { slotID = slot.slotID, spellID = slot.spellID, confidence = confidence }
+            return slot.slotID, confidence
         end
     end
 
@@ -79,11 +79,12 @@ function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpel
     return nil
 end
 
-function TS_CTURouter.OnCombatTextUpdate(ctuType, value)
+function TS_CTURouter.OnCombatTextUpdate(ctuType)
     TS_CastAnchor.PruneStale(10)
     TS_SlotManager.PruneExpiredSlots()
 
-    local valueStr = TS_Taint.SafeStr(value)
+    local _, _, _, arg3 = C_CombatText.GetCurrentEventInfo()
+    local valueStr = TS_Taint.SafeStr(arg3)
 
     --[[ DISPROVEN: Arithmetic on CTU secret values
          Do not implement. Reason: CTU value must be treated as opaque in WoW 12.0.1.
@@ -134,18 +135,18 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType, value)
 
     local auraSnapshot = TS_AuraScanner.SnapshotAllWatchedUnits()
     local lastSpellID, lastSpellTime = TS_CastAnchor.GetLastSucceeded()
-    local attributed = TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpellTime)
+    local slotID, confidence = TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpellTime)
 
     _seq = _seq + 1
     table.insert(EnsureLogTable("ctuCaptured"), {
         seq = _seq,
         ctuType = ctuType,
         valueStr = valueStr,
-        correlatedSpellID = attributed and attributed.spellID or nil,
+        correlatedSpellID = slotID,
         desig = expectedDesig,
     })
 
-    if attributed then
+    if slotID then
         -- TODO: wire to display emit function.
     end
 end

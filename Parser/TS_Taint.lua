@@ -37,22 +37,43 @@ function TS_Taint.SafeAuraExtract(unit, index)
         return nil
     end
 
-    local ok, name, _, _, _, duration, expirationTime, _, _, _, spellID = pcall(UnitAura, unit, index, "HELPFUL|PLAYER")
+    local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, unit, index, "HELPFUL|PLAYER")
     if not ok then
-        LogTaint("SafeAuraExtract", name, string.format("unit=%s,index=%s", TS_Taint.SafeStr(unit), TS_Taint.SafeStr(index)))
+        LogTaint("SafeAuraExtract", aura, string.format("unit=%s,index=%s", TS_Taint.SafeStr(unit), TS_Taint.SafeStr(index)))
         return nil
     end
 
-    if not name then
+    if not aura or not aura.name then
         return nil
     end
 
     return {
-        name = name,
-        expirationTime = expirationTime,
-        duration = duration,
-        spellID = spellID,
+        name = aura.name,
+        expirationTime = aura.expirationTime,
+        duration = aura.duration,
+        spellID = aura.spellId,
     }
+end
+
+function TS_Taint.DetectNonSelfAuras(updateInfo, spellbookCache, callback)
+    local ok, err = pcall(function()
+        local addedAuras = updateInfo and updateInfo.addedAuras
+        local cache = spellbookCache or {}
+        if not addedAuras then
+            return
+        end
+
+        for _, aura in ipairs(addedAuras) do
+            local spellIDNum = aura and aura.spellId
+            if spellIDNum and not cache[spellIDNum] then
+                callback(spellIDNum, TS_Taint.SafeStr(spellIDNum))
+            end
+        end
+    end)
+
+    if not ok then
+        LogTaint("DetectNonSelfAuras", err, "addedAuras")
+    end
 end
 
 --[[ DISPROVEN: Arithmetic on CTU secret values
