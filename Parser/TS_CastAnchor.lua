@@ -1,0 +1,103 @@
+local ADDON_NAME, TSBT = ...
+
+TS_CastAnchor = TS_CastAnchor or {}
+
+local _pendingCasts = {}
+local _lastSucceededSpellID = nil
+local _lastSucceededTime = nil
+
+local function EnsureLogTable(key)
+    TrueStrikeDB = TrueStrikeDB or {}
+    TrueStrikeDB.designationLog = TrueStrikeDB.designationLog or {}
+    TrueStrikeDB.designationLog[key] = TrueStrikeDB.designationLog[key] or {}
+    return TrueStrikeDB.designationLog[key]
+end
+
+local function LogAnchor(spellID, castGUID, target)
+    local desig = TS_Registry.GetDesignation(spellID)
+    table.insert(EnsureLogTable("castAnchors"), {
+        spellID = spellID,
+        castGUID = castGUID,
+        target = target,
+        desig = desig,
+        timestamp = GetServerTime(),
+    })
+
+    if TS_DesigConfig and TS_DesigConfig.SafeLog then
+        TS_DesigConfig.SafeLog("[TS_ANCHOR]", string.format("CAST_ANCHOR {spellID=%s,castGUID=%s,target=%s,desig=%s,timestamp=%s}", tostring(spellID), tostring(castGUID), tostring(target), tostring(desig), tostring(GetServerTime())))
+    end
+end
+
+local function Enabled()
+    return TS_DesigConfig and TS_DesigConfig.TRUESTRIKE_CAST_ANCHOR_ENABLED
+end
+
+function TS_CastAnchor.GetLastSucceeded()
+    return _lastSucceededSpellID, _lastSucceededTime
+end
+
+function TS_CastAnchor.OnSpellcastSent(unit, target, castGUID, spellID)
+    if not Enabled() or unit ~= "player" or not castGUID then
+        return
+    end
+
+    _pendingCasts[castGUID] = {
+        spellID = spellID,
+        target = TS_Taint.SafeStr(target),
+        sentTime = GetTime(),
+    }
+
+    LogAnchor(spellID, castGUID, _pendingCasts[castGUID].target)
+end
+
+function TS_CastAnchor.OnSpellcastSucceeded(unit, target, castGUID, spellID)
+    if not Enabled() or unit ~= "player" then
+        return
+    end
+
+    local pending = _pendingCasts[castGUID]
+    if not pending then
+        return
+    end
+
+    _lastSucceededSpellID = spellID
+    _lastSucceededTime = GetTime()
+
+    if TS_Registry.GetDesignation(spellID) == TS_Registry.DESIGNATION.HOT and TS_AuraScanner then
+        TS_AuraScanner.ScanUnit("player")
+    end
+
+    if spellID == 5394 and TS_DesigConfig.TRUESTRIKE_SYNTHETIC_TOTEM_SLOTS then
+        TS_SlotManager.CreateSyntheticTotemSlot(5394, 52042, "Healing Stream", 15)
+    end
+
+    _pendingCasts[castGUID] = nil
+    LogAnchor(spellID, castGUID, TS_Taint.SafeStr(target))
+end
+
+function TS_CastAnchor.OnSpellcastFailed(unit, target, castGUID, spellID)
+    if not Enabled() or unit ~= "player" then
+        return
+    end
+    _pendingCasts[castGUID] = nil
+end
+
+function TS_CastAnchor.OnSpellcastInterrupted(unit, target, castGUID, spellID)
+    if not Enabled() or unit ~= "player" then
+        return
+    end
+    _pendingCasts[castGUID] = nil
+end
+
+function TS_CastAnchor.PruneStale(maxAge)
+    if not Enabled() then
+        return
+    end
+
+    local cutoff = GetTime() - maxAge
+    for castGUID, cast in pairs(_pendingCasts) do
+        if cast.sentTime < cutoff then
+            _pendingCasts[castGUID] = nil
+        end
+    end
+end

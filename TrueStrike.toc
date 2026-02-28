@@ -45,6 +45,14 @@ Parser\Correlation_Logic.lua
 Parser\Event_Collector.lua
 Parser\Pulse_Engine.lua
 Parser\HealAttribution.lua
+Parser\TS_DesigConfig.lua
+Parser\TS_Taint.lua
+Parser\TS_Registry.lua
+Parser\TS_SlotManager.lua
+Parser\TS_SpellbookScanner.lua
+Parser\TS_AuraScanner.lua
+Parser\TS_CastAnchor.lua
+Parser\TS_CTURouter.lua
 
 # UI - Config tabs before main config assembler
 UI\ConfigTabs.lua
