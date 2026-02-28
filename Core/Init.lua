@@ -14,8 +14,6 @@ local Addon = TSBT.Addon
 ------------------------------------------------------------------------
 -- Combat lockdown defer state
 ------------------------------------------------------------------------
-local pendingParserEnable = false
-local pendingParserDisable = false
 local pendingDesignationSafeInit = false
 local designationEventFrame = nil
 
@@ -137,76 +135,15 @@ end
 -- Enable/Disable parsers (with combat lockdown protection)
 ------------------------------------------------------------------------
 local function EnableParsers()
-    if InCombatLockdown() then
-        pendingParserEnable = true
-        pendingParserDisable = false
-        return false -- Deferred
-    end
-
-    -- Apply Blizzard FCT settings first
-    ApplyBlizzardFCTSettings()
-
-    if TSBT.Parser then
-        -- Enable data processors (sets _enabled flag, no event registration)
-        if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Enable then
-            TSBT.Parser.Incoming:Enable()
-        end
-        if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Enable then
-            TSBT.Parser.Outgoing:Enable()
-        end
-        if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Enable then
-            TSBT.Parser.Cooldowns:Enable()
-        end
-
-        -- Enable HealAttribution (COMBAT_TEXT_UPDATE based heal display)
-        if TSBT.Parser.HealAttribution and TSBT.Parser.HealAttribution.Enable then
-            TSBT.Parser.HealAttribution:Enable()
-        end
-
-        -- Enable master listener (registers COMBAT_LOG_EVENT_UNFILTERED)
-        -- This MUST be last so data processors are ready before events fire
-        if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Enable then
-            TSBT.Parser.CombatLog:Enable()
-        end
-    end
-
-    pendingParserEnable = false
-    return true -- Success
+    -- Legacy parser modules removed. Designation Engine is managed
+    -- via RegisterDesignationSafeInit() in OnEnable().
 end
- 
+
 local function DisableParsers()
-    if InCombatLockdown() then
-        pendingParserDisable = true
-        pendingParserEnable = false
-        return false -- Deferred
-    end
-
-    if TSBT.Parser then
-        -- Disable master listener FIRST (stops event flow)
-        if TSBT.Parser.CombatLog and TSBT.Parser.CombatLog.Disable then
-            TSBT.Parser.CombatLog:Disable()
-        end
-
-        -- Disable HealAttribution
-        if TSBT.Parser.HealAttribution and TSBT.Parser.HealAttribution.Disable then
-            TSBT.Parser.HealAttribution:Disable()
-        end
-
-        -- Then disable data processors (clears _enabled flag)
-        if TSBT.Parser.Incoming and TSBT.Parser.Incoming.Disable then
-            TSBT.Parser.Incoming:Disable()
-        end
-        if TSBT.Parser.Outgoing and TSBT.Parser.Outgoing.Disable then
-            TSBT.Parser.Outgoing:Disable()
-        end
-        if TSBT.Parser.Cooldowns and TSBT.Parser.Cooldowns.Disable then
-            TSBT.Parser.Cooldowns:Disable()
-        end
-    end
-
-    pendingParserDisable = false
-    return true -- Success
+    -- Legacy parser modules removed. Designation Engine is managed
+    -- via RegisterDesignationSafeInit() in OnEnable().
 end
+
 
 ------------------------------------------------------------------------
 -- Combat lockdown watcher frame
@@ -220,11 +157,6 @@ combatFrame:SetScript("OnEvent", function(self, event)
             RegisterDesignationSafeInit()
         end
 
-        if pendingParserEnable then
-            EnableParsers()
-        elseif pendingParserDisable then
-            DisableParsers()
-        end
     end
 end)
 
