@@ -79,6 +79,10 @@ end
 local function ScanPlayerHoTs()
     HealAttr._activeHoTs = {}
 
+    if InCombatLockdown() then
+        return -- WoW 12.0.1: aura reads are forbidden in combat
+    end
+
     -- Get user-configured HoT spell IDs
     local hotSpellIDs = TSBT.db and TSBT.db.profile
         and TSBT.db.profile.incoming
@@ -90,6 +94,10 @@ local function ScanPlayerHoTs()
     end
 
     -- Scan player buffs
+    --[[ DISPROVEN: In-combat C_UnitAuras.GetBuffDataByIndex reads
+         Do not implement. Reason: GetBuffDataByIndex in combat is forbidden under WoW 12.0.1 constraints.
+         Source: TrueStrike_DesignationEngine_Handoff_v1.md
+    --]]
     for i = 1, 40 do
         local aura = C_UnitAuras.GetBuffDataByIndex("player", i)
         if not aura then break end
@@ -205,7 +213,9 @@ local function OnEvent(self, event, arg1, ...)
 
     -- UNIT_AURA: Track active HoT buffs
     if event == "UNIT_AURA" and arg1 == "player" then
-        ScanPlayerHoTs()
+        if not InCombatLockdown() then
+            ScanPlayerHoTs()
+        end
         return
     end
 
@@ -397,7 +407,9 @@ function HealAttr:Enable()
     self._frame:SetScript("OnEvent", OnEvent)
 
     -- Initial HoT scan
-    ScanPlayerHoTs()
+    if not InCombatLockdown() then
+        ScanPlayerHoTs()
+    end
 
     self._enabled = true
     Debug(1, "Enabled")
