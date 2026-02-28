@@ -4,9 +4,8 @@ TS_SpellbookScanner = TS_SpellbookScanner or {}
 
 local _spellbookScanned = false
 
-local function ScanSlot(bookType, slot)
-    local spellType, spellID = GetSpellBookItemInfo(slot, bookType)
-    if spellType ~= "SPELL" or not spellID then
+local function RegisterSpellDesignation(spellID, desig)
+    if not spellID then
         return
     end
 
@@ -16,12 +15,6 @@ local function ScanSlot(bookType, slot)
 
     local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spellID)
     local name = info and info.name or tostring(spellID)
-    local desig = TS_Registry.DESIGNATION.UNKNOWN
-
-    if C_Spell and C_Spell.IsSpellPassive and C_Spell.IsSpellPassive(spellID) then
-        desig = TS_Registry.DESIGNATION.IGNORED
-    end
-
     TS_Registry.RegisterSpell(spellID, name, desig)
 end
 
@@ -30,11 +23,31 @@ function TS_SpellbookScanner.ScanSpellbook()
         return
     end
 
-    local tabs = GetNumSpellTabs()
-    for tab = 1, tabs do
-        local _, _, offset, numSlots = GetSpellTabInfo(tab)
-        for i = 1, numSlots do
-            ScanSlot("spell", offset + i)
+    local skillLineCount = C_SpellBook.GetNumSpellBookSkillLines()
+    for i = 1, skillLineCount do
+        local skillLineInfo = C_SpellBook.GetSpellBookSkillLineInfo(i)
+        if skillLineInfo then
+            local itemIndexOffset = skillLineInfo.itemIndexOffset or 0
+            local numSpellBookItems = skillLineInfo.numSpellBookItems or 0
+
+            for j = itemIndexOffset + 1, itemIndexOffset + numSpellBookItems do
+                local itemInfo = C_SpellBook.GetSpellBookItemInfo(j, Enum.SpellBookSpellBank.Player)
+                if itemInfo then
+                    local itemType = itemInfo.itemType
+                    local spellID = itemInfo.actionID
+
+                    if itemType == Enum.SpellBookItemType.Spell then
+                        local desig = TS_Registry.DESIGNATION.UNKNOWN
+                        if C_Spell and C_Spell.IsSpellPassive and C_Spell.IsSpellPassive(spellID) then
+                            desig = TS_Registry.DESIGNATION.IGNORED
+                        end
+                        RegisterSpellDesignation(spellID, desig)
+                    elseif itemType == Enum.SpellBookItemType.FutureSpell then
+                        -- FUTURESPELL
+                        RegisterSpellDesignation(spellID, TS_Registry.DESIGNATION.UNKNOWN)
+                    end
+                end
+            end
         end
     end
 

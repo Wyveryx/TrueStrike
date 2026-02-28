@@ -34,17 +34,7 @@ Core\Display_Decide.lua
 Core\Cooldowns_Decide.lua
 Core\Combat_Decide.lua
 
-# Parser (Detection) - Skeletons
-Parser\Normalize.lua
-Parser\CombatLog_Detect.lua
-Parser\Cooldowns_Detect.lua
-Parser\Incoming_Detect.lua
-Parser\Outgoing_Detect.lua
-Parser\State_Manager.lua
-Parser\Correlation_Logic.lua
-Parser\Event_Collector.lua
-Parser\Pulse_Engine.lua
-Parser\HealAttribution.lua
+# Parser (Designation Engine)
 Parser\TS_DesigConfig.lua
 Parser\TS_Taint.lua
 Parser\TS_Registry.lua
