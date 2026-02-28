@@ -194,6 +194,17 @@ TSBT.DEFAULTS = {
             captureEnabled = false,
             maxEntries     = 1000,
             log            = {},
+            designationLog = {
+                castAnchors    = {},
+                hotSlots       = {},
+                tickAttributed = {},
+                ctuCaptured    = {},
+                spellPromoted  = {},
+                typeGateFired  = {},
+                unknownObserved = {},
+                taintErrors    = {},
+                sessionSummary = {},
+            },
         },
     },
 }

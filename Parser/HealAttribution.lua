@@ -270,6 +270,12 @@ local function OnEvent(self, event, arg1, ...)
     if event == "COMBAT_TEXT_UPDATE" and HEAL_EVENTS[arg1] then
         local data, arg3 = C_CombatText.GetCurrentEventInfo()
 
+        -- DESIGNATION ENGINE: TS_CTURouter runs first when enabled. Existing attribution below is fallback.
+        if TS_DesigConfig and TS_DesigConfig.TRUESTRIKE_CAST_ANCHOR_ENABLED
+            and TS_CTURouter and TS_CTURouter.OnCombatTextUpdate then
+            TS_CTURouter.OnCombatTextUpdate(arg1, arg3)
+        end
+
         -- Check if healing display is enabled
         local healConf = TSBT.db and TSBT.db.profile
             and TSBT.db.profile.incoming
