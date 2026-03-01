@@ -32,6 +32,14 @@ TS_DesigConfig.WATCHED_UNITS = {
     party4 = true,
 }
 
+
+function TS_DesigConfig.EnsureLogTable(key)
+    TrueStrikeDB = TrueStrikeDB or {}
+    TrueStrikeDB.designationLog = TrueStrikeDB.designationLog or {}
+    TrueStrikeDB.designationLog[key] = TrueStrikeDB.designationLog[key] or {}
+    return TrueStrikeDB.designationLog[key]
+end
+
 local function SafeLog(prefix, msg)
     if not TS_DesigConfig.DEBUG_LOGGING then
         return
