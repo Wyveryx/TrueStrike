@@ -23,6 +23,74 @@ local _ignorable = {
     RESIST = true,
 }
 
+local function RouteToDisplay(ctuType, valueStr)
+    local profile = TSBT.db and TSBT.db.profile
+    if not profile then
+        return
+    end
+
+    local routing = {
+        Heal = {
+            areaName = profile.outgoing.healing.scrollArea,
+            enabled = profile.outgoing.healing.enabled,
+        },
+        HoT = {
+            areaName = profile.incoming.healing.scrollArea,
+            enabled = profile.incoming.healing.enabled,
+        },
+        Damage = {
+            areaName = profile.outgoing.damage.scrollArea,
+            enabled = profile.outgoing.damage.enabled,
+        },
+        DoT = {
+            areaName = profile.outgoing.damage.scrollArea,
+            enabled = profile.outgoing.damage.enabled,
+        },
+    }
+
+    local family = TS_CTURouter.CTU_SLOT_FAMILY[ctuType]
+    if not family then
+        return
+    end
+
+    if family == "Melee" then
+        -- FLAGGED: Melee attribution gated.
+        -- TRUESTRIKE_MELEE_ATTRIBUTION = false
+        -- Outcome A confirmed. No outgoing melee API path.
+        return
+    end
+
+    local route = routing[family]
+    if not route then
+        return
+    end
+
+    local areaName = route.areaName
+    local enabled = route.enabled
+    if enabled == false then
+        return
+    end
+    if not areaName or areaName == "" then
+        return
+    end
+
+    -- Secret value already converted via TS_Taint.SafeStr before
+    -- this point. valueStr is display-safe. Do not unwrap further.
+    local ok, err = pcall(function()
+        TSBT.DisplayText(areaName, valueStr)
+    end)
+    if not ok then
+        table.insert(
+            TS_DesigConfig.EnsureLogTable("taintErrors"),
+            {
+                ["function"] = "RouteToDisplay",
+                error = tostring(err),
+                context = ctuType,
+            }
+        )
+    end
+end
+
 local function LogUnknown(ctuType)
     table.insert(TS_DesigConfig.EnsureLogTable("unknownObserved"), {
         spellID = nil,
@@ -140,6 +208,6 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     })
 
     if slotID then
-        -- TODO: wire to display emit function.
+        RouteToDisplay(ctuType, valueStr)
     end
 end
