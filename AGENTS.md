@@ -1,3 +1,20 @@
+# CODEX STANDING ORDERS (READ THIS FIRST ON EVERY TASK)
+
+## Rule 1 — Version Bump (MANDATORY ON EVERY COMMIT)
+Every Codex task MUST increment the patch version before committing.
+Update BOTH of these files — they must always match:
+  - Core/Constants.lua  →  TSBT.VERSION  (e.g. "0.3.0-alpha")
+  - TrueStrike.toc      →  ## Version:   (e.g. 0.3.0-alpha)
+Format: MAJOR.MINOR.PATCH-alpha
+Increment PATCH by 1 on every commit (0.3.0 → 0.3.1 → 0.3.2 etc.).
+MINOR increments only when directed by the architect.
+NEVER commit without bumping. NEVER let the two files fall out of sync.
+
+## Rule 2 — Revision History (MANDATORY ON EVERY COMMIT)
+After every commit, append one line to the Revision History section
+at the bottom of this file using this exact format:
+  - X.X.X-alpha: [one sentence describing what changed]
+
 # Project Overview
 TrueStrike provides accurate floating combat text with confidence-based attribution for WoW 12.0.1 (Midnight). It bypasses Secret Values restrictions using COMBAT_TEXT_UPDATE passthrough logic combined with a confidence-based Designation Engine.
 
@@ -59,3 +76,19 @@ All flags live in Parser/TS_DesigConfig.lua. Current defaults:
 - TRUESTRIKE_INCOMING_HEAL_PROBE = false (FLAGGED — untested)
 - TRUESTRIKE_CLASS_DB_DRUID/PRIEST/PALADIN/MONK = false (FLAGGED — no discovery data)
 - DEBUG_LOGGING = false
+# Known Limitations (Confirmed v0.3.0-alpha)
+- White damage (auto-attacks): No viable API path found in WoW 12.0.1.
+  UNIT_COMBAT confirmed Outcome A (incoming-only via RegisterUnitEvent).
+  Parked as known limitation. Not a TrueStrike bug.
+- Pet damage: Solvable but requires a dedicated probe session.
+  Not yet implemented. Future work.
+- Outgoing heals to other players (group content): CTU path exists and
+  is architecturally plumbed, but has never been validated in a live
+  group environment. Flagged as TRUESTRIKE_INCOMING_HEAL_PROBE = false.
+  Requires at least one group session to confirm before removing flag.
+
+# Revision History
+- 0.3.0-alpha: Wired TS_CTURouter display dispatch via RouteToDisplay().
+               First revision targeting full in-game combat text display.
+- 0.2.0-alpha: Designation Engine implementation (Codex Prompt v1).
+- 0.1.0-alpha: Initial scaffold.
