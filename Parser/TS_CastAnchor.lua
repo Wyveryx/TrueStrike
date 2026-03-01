@@ -6,16 +6,9 @@ local _pendingCasts = {}
 local _lastSucceededSpellID = nil
 local _lastSucceededTime = nil
 
-local function EnsureLogTable(key)
-    TrueStrikeDB = TrueStrikeDB or {}
-    TrueStrikeDB.designationLog = TrueStrikeDB.designationLog or {}
-    TrueStrikeDB.designationLog[key] = TrueStrikeDB.designationLog[key] or {}
-    return TrueStrikeDB.designationLog[key]
-end
-
 local function LogAnchor(spellID, castGUID, target)
     local desig = TS_Registry.GetDesignation(spellID)
-    table.insert(EnsureLogTable("castAnchors"), {
+    table.insert(TS_DesigConfig.EnsureLogTable("castAnchors"), {
         spellID = spellID,
         castGUID = castGUID,
         target = target,
@@ -50,15 +43,11 @@ function TS_CastAnchor.OnSpellcastSent(unit, target, castGUID, spellID)
     LogAnchor(spellID, castGUID, _pendingCasts[castGUID].target)
 end
 
-function TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID, ...)
+function TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID, castBarID)
     if not Enabled() or unit ~= "player" then
         return
     end
 
-    if not castGUID and type(spellID) == "string" then
-        castGUID = spellID
-        spellID = select(1, ...)
-    end
 
     local pending = _pendingCasts[castGUID]
     if not pending then
@@ -74,6 +63,19 @@ function TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID, ...)
 
     if spellID == 5394 and TS_DesigConfig.TRUESTRIKE_SYNTHETIC_TOTEM_SLOTS then
         TS_SlotManager.CreateSyntheticTotemSlot(5394, 52042, "Healing Stream", 15)
+    end
+
+    local synth = TS_Registry.GetSyntheticDesignation(spellID)
+    if synth and TS_DesigConfig and TS_DesigConfig[synth.featureFlag] then
+        TS_SlotManager.NewHotSlot(
+            synth.auraSpellID,
+            synth.tickSpellName,
+            "player",
+            nil,
+            nil,
+            nil,
+            "SYNTHETIC_DESIGNATION"
+        )
     end
 
     _pendingCasts[castGUID] = nil
@@ -115,7 +117,7 @@ function TS_CastAnchor.OnUnitAura(unit, updateInfo, spellbookCache)
     for _, aura in ipairs(scanned) do
         if TS_Registry.GetDesignation(aura.spellID) == TS_Registry.DESIGNATION.HOT then
             if not TS_SlotManager.FindHotSlot(aura.spellID, unit) then
-                TS_SlotManager.NewHotSlot(aura.spellID, aura.name, unit, aura.expirationTime, aura.duration, "AURA_SCAN")
+                TS_SlotManager.NewHotSlot(aura.spellID, aura.name, unit, aura.expirationTime, aura.computedExpiry, aura.duration, "AURA_SCAN")
             end
         end
     end

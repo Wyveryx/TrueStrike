@@ -5,28 +5,27 @@ TS_SlotManager = TS_SlotManager or {}
 local _hotSlots = {}
 local _slotCounter = 0
 
-local function EnsureLogTable(key)
-    TrueStrikeDB = TrueStrikeDB or {}
-    TrueStrikeDB.designationLog = TrueStrikeDB.designationLog or {}
-    TrueStrikeDB.designationLog[key] = TrueStrikeDB.designationLog[key] or {}
-    return TrueStrikeDB.designationLog[key]
+local function IsInRestrictedContent()
+    local inInstance, instanceType = IsInInstance()
+    return inInstance == true
 end
 
 local function LogCreated(slot)
-    table.insert(EnsureLogTable("hotSlots"), {
+    table.insert(TS_DesigConfig.EnsureLogTable("hotSlots"), {
         slotID = slot.slotID,
         spellID = slot.spellID,
         unit = slot.unit,
         expirationTime = slot.expirationTime,
+        computedExpiry = slot.computedExpiry,
         source = slot.source,
     })
     if TS_DesigConfig and TS_DesigConfig.SafeLog then
-        TS_DesigConfig.SafeLog("[TS_SLOT]", string.format("HOT_SLOT_CREATED {slotID=%s,spellID=%s,unit=%s,expirationTime=%s,source=%s}", tostring(slot.slotID), tostring(slot.spellID), tostring(slot.unit), tostring(slot.expirationTime), tostring(slot.source)))
+        TS_DesigConfig.SafeLog("[TS_SLOT]", string.format("HOT_SLOT_CREATED {slotID=%s,spellID=%s,unit=%s,expirationTime=%s,computedExpiry=%s,source=%s}", tostring(slot.slotID), tostring(slot.spellID), tostring(slot.unit), tostring(slot.expirationTime), tostring(slot.computedExpiry), tostring(slot.source)))
     end
 end
 
 local function LogExpired(slot)
-    table.insert(EnsureLogTable("hotSlots"), {
+    table.insert(TS_DesigConfig.EnsureLogTable("hotSlots"), {
         slotID = slot.slotID,
         spellID = slot.spellID,
         tickCount = slot.tickCount,
@@ -37,9 +36,15 @@ local function LogExpired(slot)
     end
 end
 
-function TS_SlotManager.NewHotSlot(spellID, spellName, unit, expirationTime, duration, source)
+function TS_SlotManager.NewHotSlot(spellID, spellName, unit, expirationTime, computedExpiry, duration, source)
     if not (TS_DesigConfig and TS_DesigConfig.TRUESTRIKE_HOT_SLOT_LIFECYCLE) then
         return nil
+    end
+
+    if source == nil and type(duration) == "string" then
+        source = duration
+        duration = computedExpiry
+        computedExpiry = expirationTime
     end
 
     _slotCounter = _slotCounter + 1
@@ -50,6 +55,7 @@ function TS_SlotManager.NewHotSlot(spellID, spellName, unit, expirationTime, dur
         unit = unit,
         assignedTime = GetTime(),
         expirationTime = expirationTime,
+        computedExpiry = computedExpiry,
         duration = duration,
         tickCount = 0,
         source = source,
@@ -62,8 +68,10 @@ end
 
 function TS_SlotManager.FindHotSlot(spellID, unit)
     local now = GetTime()
+    local restricted = IsInRestrictedContent()
     for _, slot in ipairs(_hotSlots) do
-        if slot.expirationTime and slot.expirationTime >= now and slot.spellID == spellID and slot.unit == unit then
+        local expiry = restricted and slot.computedExpiry or slot.expirationTime
+        if expiry and expiry >= now and slot.spellID == spellID and slot.unit == unit then
             return slot
         end
     end
@@ -81,9 +89,11 @@ end
 
 function TS_SlotManager.PruneExpiredSlots()
     local now = GetTime()
+    local restricted = IsInRestrictedContent()
     for i = #_hotSlots, 1, -1 do
         local slot = _hotSlots[i]
-        if slot.expirationTime and slot.expirationTime < now then
+        local expiry = restricted and slot.computedExpiry or slot.expirationTime
+        if expiry and expiry < now then
             LogExpired(slot)
             table.remove(_hotSlots, i)
         end
@@ -103,6 +113,7 @@ function TS_SlotManager.CreateSyntheticTotemSlot(summonSpellID, tickSpellID, tic
         tickSpellID,
         tickSpellName,
         "synthetic_totem",
+        GetTime() + durationSeconds,
         GetTime() + durationSeconds,
         durationSeconds,
         "SYNTHETIC_TOTEM"

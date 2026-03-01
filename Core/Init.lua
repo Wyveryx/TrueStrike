@@ -16,6 +16,7 @@ local Addon = TSBT.Addon
 ------------------------------------------------------------------------
 local pendingDesignationSafeInit = false
 local designationEventFrame = nil
+local enableFrame = CreateFrame("Frame")
 
 ------------------------------------------------------------------------
 -- Designation Engine safe-init wiring (register only out of combat)
@@ -32,7 +33,7 @@ local function DispatchDesignationEvent(event, ...)
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         local unit, castGUID, spellID = ...
         if unit == "player" and TS_CastAnchor and TS_CastAnchor.OnSpellcastSucceeded then
-            TS_CastAnchor.OnSpellcastSucceeded(unit, nil, castGUID, spellID)
+            TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID)
         end
         return
     end
@@ -54,9 +55,12 @@ local function DispatchDesignationEvent(event, ...)
     end
 
     if event == "UNIT_AURA" then
-        local unit = ...
+        local unit, updateInfo = ...
         if TS_AuraScanner and TS_AuraScanner.OnUnitAura then
-            TS_AuraScanner.OnUnitAura(unit)
+            TS_AuraScanner.OnUnitAura(unit, updateInfo)
+        end
+        if TS_CastAnchor and TS_CastAnchor.OnUnitAura then
+            TS_CastAnchor.OnUnitAura(unit, updateInfo)
         end
         return
     end
@@ -94,11 +98,6 @@ local function RegisterDesignationSafeInit()
     if desigConfig and desigConfig.TRUESTRIKE_KNOWN_SPELLS_OVERRIDE
         and TS_Registry and TS_Registry.SeedKnownSpells then
         TS_Registry.SeedKnownSpells()
-    end
-
-    if desigConfig and desigConfig.TRUESTRIKE_SPELLBOOK_SCAN
-        and TS_SpellbookScanner and TS_SpellbookScanner.ScanSpellbook then
-        TS_SpellbookScanner.ScanSpellbook()
     end
 
     if desigConfig and desigConfig.TRUESTRIKE_PRECOMBAT_AURA_SCAN
@@ -228,7 +227,6 @@ function Addon:OnEnable()
 
     -- CRITICAL: Use PLAYER_ENTERING_WORLD to defer parser enable
     -- This event ALWAYS fires outside combat and after all protected loading is complete
-    local enableFrame = CreateFrame("Frame")
     enableFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     enableFrame:SetScript("OnEvent", function(self, event)
         self:UnregisterEvent("PLAYER_ENTERING_WORLD")

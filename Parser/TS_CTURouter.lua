@@ -23,15 +23,8 @@ local _ignorable = {
     RESIST = true,
 }
 
-local function EnsureLogTable(key)
-    TrueStrikeDB = TrueStrikeDB or {}
-    TrueStrikeDB.designationLog = TrueStrikeDB.designationLog or {}
-    TrueStrikeDB.designationLog[key] = TrueStrikeDB.designationLog[key] or {}
-    return TrueStrikeDB.designationLog[key]
-end
-
 local function LogUnknown(ctuType)
-    table.insert(EnsureLogTable("unknownObserved"), {
+    table.insert(TS_DesigConfig.EnsureLogTable("unknownObserved"), {
         spellID = nil,
         spellName = nil,
         ctuType = ctuType,
@@ -64,7 +57,7 @@ function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpel
     for _, slot in ipairs(TS_SlotManager.GetActiveSlots()) do
         if TS_Registry.GetDesignation(slot.spellID) == expectedDesig then
             local confidence = inSnapshot[slot.spellID] and "HIGH" or "MEDIUM"
-            table.insert(EnsureLogTable("tickAttributed"), {
+            table.insert(TS_DesigConfig.EnsureLogTable("tickAttributed"), {
                 slotID = slot.slotID,
                 spellID = slot.spellID,
                 ctuType = ctuType,
@@ -138,7 +131,7 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     local slotID, confidence = TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpellTime)
 
     _seq = _seq + 1
-    table.insert(EnsureLogTable("ctuCaptured"), {
+    table.insert(TS_DesigConfig.EnsureLogTable("ctuCaptured"), {
         seq = _seq,
         ctuType = ctuType,
         valueStr = valueStr,

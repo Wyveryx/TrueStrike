@@ -19,12 +19,13 @@ TS_Registry.DAMAGE_FAMILY = { Damage = true, Damage_AoE = true, DoT = true, Mele
 
 local _registry = {}
 
-local function EnsureLogTable(key)
-    TrueStrikeDB = TrueStrikeDB or {}
-    TrueStrikeDB.designationLog = TrueStrikeDB.designationLog or {}
-    TrueStrikeDB.designationLog[key] = TrueStrikeDB.designationLog[key] or {}
-    return TrueStrikeDB.designationLog[key]
-end
+TS_Registry.syntheticDesignations = {}
+
+-- castSpellID = {
+--     auraSpellID = number,
+--     tickSpellName = string,
+--     featureFlag = string,
+-- }
 
 local function GetFamily(desig)
     if TS_Registry.HEAL_FAMILY[desig] then
@@ -52,6 +53,10 @@ function TS_Registry.GetDesignation(spellID)
     return entry and entry.desig or nil
 end
 
+function TS_Registry.GetSyntheticDesignation(castSpellID)
+    return TS_Registry.syntheticDesignations[castSpellID]
+end
+
 function TS_Registry.TryPromote(spellID, newDesig, confidence, source)
     local existing = _registry[spellID]
 
@@ -59,7 +64,7 @@ function TS_Registry.TryPromote(spellID, newDesig, confidence, source)
         local currentFamily = GetFamily(existing.desig)
         local newFamily = GetFamily(newDesig)
         if currentFamily ~= newFamily then
-            table.insert(EnsureLogTable("typeGateFired"), {
+            table.insert(TS_DesigConfig.EnsureLogTable("typeGateFired"), {
                 spellID = spellID,
                 requestedDesig = newDesig,
                 currentDesig = existing.desig,
@@ -74,7 +79,7 @@ function TS_Registry.TryPromote(spellID, newDesig, confidence, source)
 
     local fromDesig = existing and existing.desig or nil
     TS_Registry.RegisterSpell(spellID, existing and existing.name or tostring(spellID), newDesig)
-    table.insert(EnsureLogTable("spellPromoted"), {
+    table.insert(TS_DesigConfig.EnsureLogTable("spellPromoted"), {
         spellID = spellID,
         fromDesig = fromDesig,
         toDesig = newDesig,
@@ -94,20 +99,30 @@ function TS_Registry.SeedKnownSpells()
 
     local D = TS_Registry.DESIGNATION
 
-    TS_Registry.RegisterSpell(61295, "Riptide", D.HOT)
+
+    TS_Registry.syntheticDesignations[61295] = {
+        auraSpellID = 61295,
+        tickSpellName = "Riptide",
+        featureFlag = "TRUESTRIKE_SYNTHETIC_TOTEM_SLOTS",
+    }
+    TS_Registry.syntheticDesignations[73920] = {
+        auraSpellID = 73921,
+        tickSpellName = "Healing Rain",
+        featureFlag = "TRUESTRIKE_SYNTHETIC_TOTEM_SLOTS",
+    }
+    TS_Registry.syntheticDesignations[5394] = {
+        auraSpellID = 52042,
+        tickSpellName = "Healing Stream",
+        featureFlag = "TRUESTRIKE_SYNTHETIC_TOTEM_SLOTS",
+    }
+
     TS_Registry.RegisterSpell(77472, "Healing Wave", D.HEAL)
     TS_Registry.RegisterSpell(77451, "Greater Healing Wave", D.HEAL)
-    TS_Registry.RegisterSpell(73921, "Healing Rain", D.HOT)
-    TS_Registry.RegisterSpell(73920, "Healing Rain", D.IGNORED)
-    TS_Registry.RegisterSpell(458357, "Healing Rain", D.IGNORED)
     TS_Registry.RegisterSpell(383648, "Earth Shield", D.PROC)
     TS_Registry.RegisterSpell(974, "Earth Shield", D.PROC)
     TS_Registry.RegisterSpell(379, "Earth Shield", D.PROC)
-    TS_Registry.RegisterSpell(5394, "Healing Stream Totem", D.IGNORED)
-    TS_Registry.RegisterSpell(52042, "Healing Stream", D.HOT)
     TS_Registry.RegisterSpell(470411, "Voltaic Blaze", D.DAMAGE_AOE)
     TS_Registry.RegisterSpell(1064, "Chain Heal", D.HEAL)
     TS_Registry.RegisterSpell(51945, "Earthliving", D.PROC)
 
-    -- TODO: verify spellID for Riptide cast variant from handoff section 4.9.
 end

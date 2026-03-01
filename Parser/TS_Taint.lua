@@ -2,20 +2,13 @@ local ADDON_NAME, TSBT = ...
 
 TS_Taint = TS_Taint or {}
 
-local function EnsureLogTable(key)
-    TrueStrikeDB = TrueStrikeDB or {}
-    TrueStrikeDB.designationLog = TrueStrikeDB.designationLog or {}
-    TrueStrikeDB.designationLog[key] = TrueStrikeDB.designationLog[key] or {}
-    return TrueStrikeDB.designationLog[key]
-end
-
 local function LogTaint(functionName, err, context)
     local entry = {
         ["function"] = functionName,
         error = tostring(err or "unknown"),
         context = context,
     }
-    table.insert(EnsureLogTable("taintErrors"), entry)
+    table.insert(TS_DesigConfig.EnsureLogTable("taintErrors"), entry)
 
     if TS_DesigConfig and TS_DesigConfig.SafeLog then
         TS_DesigConfig.SafeLog("[TS_TAINT]", string.format("TAINT_ERROR {function=%s,error=%s,context=%s}", entry["function"], entry.error, tostring(context)))
@@ -51,6 +44,7 @@ function TS_Taint.SafeAuraExtract(unit, index)
         name = aura.name,
         expirationTime = aura.expirationTime,
         duration = aura.duration,
+        computedExpiry = GetTime() + (aura.duration or 0),
         spellID = aura.spellId,
     }
 end
