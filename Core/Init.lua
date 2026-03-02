@@ -70,6 +70,14 @@ local function DispatchDesignationEvent(event, ...)
             TS_SpellbookScanner.OnSpellsChanged()
         end
     end
+
+    if event == "COMBAT_TEXT_UPDATE" then
+        local ctuType = ...
+        if ctuType and TS_CTURouter and TS_CTURouter.OnCombatTextUpdate then
+            TS_CTURouter.OnCombatTextUpdate(ctuType)
+        end
+        return
+    end
 end
 
 local function RegisterDesignationSafeInit()
@@ -87,6 +95,7 @@ local function RegisterDesignationSafeInit()
     designationEventFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
     designationEventFrame:RegisterEvent("UNIT_AURA")
     designationEventFrame:RegisterEvent("SPELLS_CHANGED")
+    designationEventFrame:RegisterEvent("COMBAT_TEXT_UPDATE")
     designationEventFrame:SetScript("OnEvent", function(_, event, ...)
         DispatchDesignationEvent(event, ...)
     end)
@@ -233,6 +242,7 @@ function Addon:OnEnable()
 
         if masterEnabled then
             if TSBT.Core and TSBT.Core.Enable then TSBT.Core:Enable() end
+            ApplyBlizzardFCTSettings()
 
             -- Register designation engine safe-init handlers and run init sequence.
             -- This registration must occur in PLAYER_ENTERING_WORLD flow and never during combat lockdown.

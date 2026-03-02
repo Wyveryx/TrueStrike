@@ -66,17 +66,24 @@ function Core:ApplyBlizzardFCTCVars()
         end
     end
 
-    -- These are the historical CVars. If Blizzard changes them again, we’ll adapt.
+    -- NOTE: Blizzard renamed all floatingCombatText CVars to _v2 variants
+    -- in a January 2026 hotfix. Old names (without _v2) are dead and do nothing.
     if g.suppressBlizzardDamage then
-        trySet("floatingCombatTextCombatDamage", "0")
+        trySet("floatingCombatTextCombatDamage_v2", "0")
+        trySet("floatingCombatTextCombatLogPeriodicSpells_v2", "0")
+        trySet("floatingCombatTextPetMeleeDamage_v2", "0")
+        trySet("floatingCombatTextPetSpellDamage_v2", "0")
     else
-        trySet("floatingCombatTextCombatDamage", "1")
+        trySet("floatingCombatTextCombatDamage_v2", "1")
+        trySet("floatingCombatTextCombatLogPeriodicSpells_v2", "1")
+        trySet("floatingCombatTextPetMeleeDamage_v2", "1")
+        trySet("floatingCombatTextPetSpellDamage_v2", "1")
     end
 
     if g.suppressBlizzardHealing then
-        trySet("floatingCombatTextCombatHealing", "0")
+        trySet("floatingCombatTextCombatHealing_v2", "0")
     else
-        trySet("floatingCombatTextCombatHealing", "1")
+        trySet("floatingCombatTextCombatHealing_v2", "1")
     end
 end
 
