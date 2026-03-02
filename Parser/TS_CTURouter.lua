@@ -198,6 +198,47 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     local lastSpellID, lastSpellTime = TS_CastAnchor.GetLastSucceeded()
     local slotID, confidence = TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpellTime)
 
+    -- Determine whether this event can route to display.
+    -- AttributeTick() handles HoTs and close-window anchored spells.
+    -- The fast paths below handle direct heals, spell damage, and DoTs
+    -- that fall outside the 0.150s promotion window but still have a
+    -- recent cast anchor (within 2.0s), or are DoT ticks (attributed by type).
+    local canRoute = false
+
+    if slotID then
+        -- Normal attribution path: HoT slot match or promotion-window anchor.
+        canRoute = true
+
+    elseif (ctuType == "HEAL" or ctuType == "HEAL_CRIT")
+        and lastSpellID
+        and lastSpellTime
+        and (GetTime() - lastSpellTime) < 2.0
+        and TS_Registry.GetDesignation(lastSpellID) == "Heal" then
+        -- Direct heal attributed via recent cast anchor (wider 2.0s window).
+        -- CTU fires before UNIT_SPELLCAST_SUCCEEDED for cast-time spells,
+        -- so the 0.150s promotion window is too tight for this path.
+        canRoute = true
+        slotID = tostring(lastSpellID)   -- string only, for logging
+        confidence = "ANCHOR"
+
+    elseif (ctuType == "SPELL_DAMAGE" or ctuType == "SPELL_DAMAGE_CRIT")
+        and lastSpellID
+        and lastSpellTime
+        and (GetTime() - lastSpellTime) < 2.0
+        and TS_Registry.GetDesignation(lastSpellID) == "Damage" then
+        -- Spell damage attributed via recent cast anchor.
+        canRoute = true
+        slotID = tostring(lastSpellID)   -- string only, for logging
+        confidence = "ANCHOR"
+
+    elseif ctuType == "PERIODIC_DAMAGE" or ctuType == "PERIODIC_DAMAGE_CRIT" then
+        -- DoT ticks: route by type alone. Attribution is best-effort.
+        -- No slotID match required; the CTU type itself confirms player authorship.
+        canRoute = true
+        slotID = "DoT_unattributed"      -- string only, for logging
+        confidence = "LOW"
+    end
+
     _seq = _seq + 1
     table.insert(TS_DesigConfig.EnsureLogTable("ctuCaptured"), {
         seq = _seq,
@@ -205,9 +246,10 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
         valueStr = valueStr,
         correlatedSpellID = slotID,
         desig = expectedDesig,
+        confidence = confidence,
     })
 
-    if slotID then
+    if canRoute then
         RouteToDisplay(ctuType, valueStr)
     end
 end
