@@ -506,7 +506,19 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
     local inConf = TSBT.db.profile.incoming and TSBT.db.profile.incoming.healing
     local isOutgoing = outConf and (outConf.scrollArea == scrollAreaName)
     local healConf = isOutgoing and outConf or inConf
-    if not healConf or not healConf.enabled then return end
+    if not healConf or not healConf.enabled then
+        if TSBT.PipelineDiag then
+            TSBT.PipelineDiag.gateBlocked = TSBT.PipelineDiag.gateBlocked + 1
+            TSBT.PipelineDiag.lastGateResult = "BLOCK"
+        end
+        return
+    end
+
+    if TSBT.PipelineDiag then
+        TSBT.PipelineDiag.displayCalled = TSBT.PipelineDiag.displayCalled + 1
+        TSBT.PipelineDiag.lastGateResult =
+            isOutgoing and "PASS-OUT" or "PASS-IN"
+    end
 
     -- Resolve font settings
     local fontFace, fontSize, outlineFlag, fontAlpha = ResolveFontForArea(
