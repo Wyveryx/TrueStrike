@@ -207,6 +207,7 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
 
     local lastSucceededID, lastSucceededTime = TS_CastAnchor.GetLastSucceeded()
     local lastSentID, lastSentTime = TS_CastAnchor.GetLastSent()
+    local auraSnapshot = TS_AuraScanner and TS_AuraScanner.SnapshotAllWatchedUnits and TS_AuraScanner.SnapshotAllWatchedUnits() or {}
 
     -- For direct heals and damage only: fall back to SENT anchor when CTU fires
     -- before SUCCEEDED (cast-time spells). PERIODIC events must never use this
@@ -217,10 +218,23 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
 
     local lastSpellID, lastSpellTime
     if isDirectEvent then
-        lastSpellID = lastSucceededID or lastSentID
-        lastSpellTime = lastSucceededTime or lastSentTime
+        -- Prefer SUCCEEDED anchor. Only fall back to SENT if SUCCEEDED is absent
+        -- AND the SENT spell is not a Proc designation.
+        -- This prevents Ancestral Awakening (382311, Proc) and similar
+        -- simultaneous proc fires from stealing attribution from the actual cast.
+        if lastSucceededID then
+            lastSpellID  = lastSucceededID
+            lastSpellTime = lastSucceededTime
+        elseif lastSentID then
+            local sentDesig = TS_Registry.GetDesignation(lastSentID)
+            if sentDesig ~= TS_Registry.DESIGNATION.PROC and
+               sentDesig ~= TS_Registry.DESIGNATION.IGNORED then
+                lastSpellID  = lastSentID
+                lastSpellTime = lastSentTime
+            end
+        end
     else
-        lastSpellID = lastSucceededID
+        lastSpellID  = lastSucceededID
         lastSpellTime = lastSucceededTime
     end
 
