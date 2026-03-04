@@ -4,7 +4,6 @@
 --            positions and sizes on screen.
 -- Feature B: Test animation - fires dummy text into a scroll area.
 ------------------------------------------------------------------------
-
 local ADDON_NAME, TSBT = ...
 local Addon = TSBT.Addon
 
@@ -14,12 +13,12 @@ local Addon = TSBT.Addon
 
 -- Color cycle for scroll area overlay frames (one per area, wraps)
 local AREA_COLORS = {
-    { r = 1.0, g = 0.2, b = 0.2, a = 0.3 },   -- Red
-    { r = 0.2, g = 0.4, b = 1.0, a = 0.3 },   -- Blue
-    { r = 0.2, g = 1.0, b = 0.2, a = 0.3 },   -- Green
-    { r = 1.0, g = 1.0, b = 0.2, a = 0.3 },   -- Yellow
-    { r = 0.7, g = 0.2, b = 1.0, a = 0.3 },   -- Purple
-    { r = 1.0, g = 0.6, b = 0.1, a = 0.3 },   -- Orange
+    {r = 1.0, g = 0.2, b = 0.2, a = 0.3}, -- Red
+    {r = 0.2, g = 0.4, b = 1.0, a = 0.3}, -- Blue
+    {r = 0.2, g = 1.0, b = 0.2, a = 0.3}, -- Green
+    {r = 1.0, g = 1.0, b = 0.2, a = 0.3}, -- Yellow
+    {r = 0.7, g = 0.2, b = 1.0, a = 0.3}, -- Purple
+    {r = 1.0, g = 0.6, b = 0.1, a = 0.3} -- Orange
 }
 
 -- Border alpha is higher for visibility
@@ -43,23 +42,23 @@ local continuousTestTimer = nil
 ------------------------------------------------------------------------
 local function ResolveFontForArea(areaName)
     local profile = TSBT.db and TSBT.db.profile
-    if not profile then
-        return "Fonts\\FRIZQT__.TTF", 18, "OUTLINE", 1.0
-    end
+    if not profile then return "Fonts\\FRIZQT__.TTF", 18, "OUTLINE", 1.0 end
 
     local general = (profile.general and profile.general.font) or {}
     local area = (profile.scrollAreas and profile.scrollAreas[areaName]) or nil
     local areaFont = area and area.font or nil
 
     local useGlobal = true
-    if areaFont and areaFont.useGlobal == false then
-        useGlobal = false
-    end
+    if areaFont and areaFont.useGlobal == false then useGlobal = false end
 
-    local faceKey    = (not useGlobal and areaFont and areaFont.face)    or general.face or "Friz Quadrata TT"
-    local sizeVal    = (not useGlobal and areaFont and areaFont.size)    or general.size or 18
-    local outlineKey = (not useGlobal and areaFont and areaFont.outline) or general.outline or "Thin"
-    local alphaVal   = (not useGlobal and areaFont and areaFont.alpha)   or general.alpha or 1.0
+    local faceKey = (not useGlobal and areaFont and areaFont.face) or
+                        general.face or "Friz Quadrata TT"
+    local sizeVal = (not useGlobal and areaFont and areaFont.size) or
+                        general.size or 18
+    local outlineKey = (not useGlobal and areaFont and areaFont.outline) or
+                           general.outline or "Thin"
+    local alphaVal = (not useGlobal and areaFont and areaFont.alpha) or
+                         general.alpha or 1.0
 
     local LSM = LibStub("LibSharedMedia-3.0", true)
     local fontFace = "Fonts\\FRIZQT__.TTF" -- fallback
@@ -91,19 +90,20 @@ local function CreateAreaFrame(areaName, areaData, colorIdx)
 
     -- Create the frame anchored to screen center (UIParent CENTER)
     local frame = CreateFrame("Frame", "TSBT_AreaViz_" .. areaName, UIParent,
-        "BackdropTemplate")
+                              "BackdropTemplate")
     frame:SetSize(areaData.width, areaData.height)
-    frame:SetPoint("CENTER", UIParent, "CENTER", areaData.xOffset, areaData.yOffset)
+    frame:SetPoint("CENTER", UIParent, "CENTER", areaData.xOffset,
+                   areaData.yOffset)
     -- Keep frames above the config window while unlocked (new areas must be visible immediately)
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
     frame:SetFrameLevel(1000)
 
     -- Semi-transparent colored backdrop with rounded corners
     frame:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        bgFile = "Interface\\Buttons\\WHITE8X8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        edgeSize = 16,  -- Minimum size for rounded border texture
-        insets   = { left = 16, right = 16, top = 16, bottom = 16 },
+        edgeSize = 16, -- Minimum size for rounded border texture
+        insets = {left = 16, right = 16, top = 16, bottom = 16}
     })
     frame:SetBackdropColor(color.r, color.g, color.b, color.a)
     frame:SetBackdropBorderColor(color.r, color.g, color.b, BORDER_ALPHA)
@@ -115,10 +115,12 @@ local function CreateAreaFrame(areaName, areaData, colorIdx)
     label:SetTextColor(1, 1, 1, 0.9)
 
     -- Offset readout below the name (updates during drag)
-    local offsetLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local offsetLabel = frame:CreateFontString(nil, "OVERLAY",
+                                               "GameFontNormalSmall")
     offsetLabel:SetPoint("TOP", label, "BOTTOM", 0, -4)
     offsetLabel:SetTextColor(0.8, 0.8, 0.8, 0.8)
-    offsetLabel:SetText(string.format("X: %d  Y: %d", areaData.xOffset, areaData.yOffset))
+    offsetLabel:SetText(string.format("X: %d  Y: %d", areaData.xOffset,
+                                      areaData.yOffset))
     frame.offsetLabel = offsetLabel
 
     -- Make the frame draggable
@@ -129,9 +131,7 @@ local function CreateAreaFrame(areaName, areaData, colorIdx)
     -- Store references for drag handler
     frame.areaName = areaName
 
-    frame:SetScript("OnDragStart", function(self)
-        self:StartMoving()
-    end)
+    frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
 
     frame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
@@ -147,9 +147,9 @@ local function CreateAreaFrame(areaName, areaData, colorIdx)
 
         -- Clamp to slider range
         newXOffset = math.max(TSBT.SCROLL_OFFSET_MIN,
-                     math.min(TSBT.SCROLL_OFFSET_MAX, newXOffset))
+                              math.min(TSBT.SCROLL_OFFSET_MAX, newXOffset))
         newYOffset = math.max(TSBT.SCROLL_OFFSET_MIN,
-                     math.min(TSBT.SCROLL_OFFSET_MAX, newYOffset))
+                              math.min(TSBT.SCROLL_OFFSET_MAX, newYOffset))
 
         -- Update the saved profile data
         local area = TSBT.db.profile.scrollAreas[self.areaName]
@@ -164,8 +164,8 @@ local function CreateAreaFrame(areaName, areaData, colorIdx)
 
         -- Update the offset readout label immediately
         if self.offsetLabel then
-            self.offsetLabel:SetText(string.format("X: %d  Y: %d",
-                newXOffset, newYOffset))
+            self.offsetLabel:SetText(string.format("X: %d  Y: %d", newXOffset,
+                                                   newYOffset))
         end
 
         -- Notify AceConfig to refresh sliders if the config dialog is open
@@ -205,9 +205,8 @@ end
 -- Called after create/delete while unlocked.
 ------------------------------------------------------------------------
 function TSBT.RefreshScrollAreaFrames()
-    if not isUnlocked or not TSBT.db or not TSBT.db.profile or not TSBT.db.profile.scrollAreas then
-        return
-    end
+    if not isUnlocked or not TSBT.db or not TSBT.db.profile or
+        not TSBT.db.profile.scrollAreas then return end
 
     local areas = TSBT.db.profile.scrollAreas
 
@@ -227,7 +226,8 @@ function TSBT.RefreshScrollAreaFrames()
     for areaName, areaData in pairs(areas) do
         if not activeFrames[areaName] then
             colorIdx = colorIdx + 1
-            activeFrames[areaName] = CreateAreaFrame(areaName, areaData, colorIdx)
+            activeFrames[areaName] = CreateAreaFrame(areaName, areaData,
+                                                     colorIdx)
         end
     end
 
@@ -239,29 +239,28 @@ end
 -- current profile settings (size, position). Called when sliders are adjusted.
 ------------------------------------------------------------------------
 function TSBT.UpdateScrollAreaFrames()
-    if not isUnlocked or not TSBT.db or not TSBT.db.profile then
-        return
-    end
+    if not isUnlocked or not TSBT.db or not TSBT.db.profile then return end
 
     for areaName, frame in pairs(activeFrames) do
         local areaData = TSBT.db.profile.scrollAreas[areaName]
         if areaData then
             -- Update size
             frame:SetSize(areaData.width, areaData.height)
-            
+
             -- Update position
             frame:ClearAllPoints()
-            frame:SetPoint("CENTER", UIParent, "CENTER", areaData.xOffset, areaData.yOffset)
-            
+            frame:SetPoint("CENTER", UIParent, "CENTER", areaData.xOffset,
+                           areaData.yOffset)
+
             -- Update offset label
             if frame.offsetLabel then
-                frame.offsetLabel:SetText(string.format("X: %d  Y: %d",
-                    areaData.xOffset, areaData.yOffset))
+                frame.offsetLabel:SetText(
+                    string.format("X: %d  Y: %d", areaData.xOffset,
+                                  areaData.yOffset))
             end
         end
     end
 end
-
 
 ------------------------------------------------------------------------
 -- HideScrollAreaFrames: Destroy all visualization frames.
@@ -269,13 +268,11 @@ end
 ------------------------------------------------------------------------
 function TSBT.HideScrollAreaFrames()
     -- Stop continuous testing if active
-    if isContinuousTesting then
-        TSBT.StopContinuousTesting()
-    end
+    if isContinuousTesting then TSBT.StopContinuousTesting() end
 
     for areaName, frame in pairs(activeFrames) do
         frame:Hide()
-        frame:SetParent(nil)  -- Release from UI hierarchy
+        frame:SetParent(nil) -- Release from UI hierarchy
     end
     wipe(activeFrames)
 
@@ -286,9 +283,7 @@ end
 -- IsUnlocked: Query whether scroll areas are currently in unlock mode.
 -- Used by the toggle button in ConfigTabs.
 ------------------------------------------------------------------------
-function TSBT.IsScrollAreasUnlocked()
-    return isUnlocked
-end
+function TSBT.IsScrollAreasUnlocked() return isUnlocked end
 
 ------------------------------------------------------------------------
 -- Feature B: Test Animation
@@ -310,25 +305,26 @@ function TSBT.TestScrollArea(areaName)
 
     -- Require scroll areas to be unlocked
     if not isUnlocked then
-        Addon:Print("Scroll areas must be unlocked to test. Click 'Unlock Scroll Areas' first.")
+        Addon:Print(
+            "Scroll areas must be unlocked to test. Click 'Unlock Scroll Areas' first.")
         return
     end
 
-    local area = TSBT.db and TSBT.db.profile
-                  and TSBT.db.profile.scrollAreas
-                  and TSBT.db.profile.scrollAreas[areaName]
+    local area = TSBT.db and TSBT.db.profile and TSBT.db.profile.scrollAreas and
+                     TSBT.db.profile.scrollAreas[areaName]
     if not area then
         Addon:Print("Scroll area '" .. areaName .. "' not found.")
         return
     end
 
-    local fontFace, fontSize, outlineFlag, fontAlpha = ResolveFontForArea(areaName)
+    local fontFace, fontSize, outlineFlag, fontAlpha = ResolveFontForArea(
+                                                           areaName)
 
     -- Determine alignment anchor point
     local alignmentMap = {
-        ["Left"]   = "LEFT",
+        ["Left"] = "LEFT",
         ["Center"] = "CENTER",
-        ["Right"]  = "RIGHT",
+        ["Right"] = "RIGHT"
     }
     local anchorH = alignmentMap[area.alignment] or "CENTER"
 
@@ -336,15 +332,11 @@ function TSBT.TestScrollArea(areaName)
     local dirMult = (area.direction == "Down") and -1 or 1
 
     -- Animation duration base (modified by animSpeed)
-    local baseDuration = 2.0   -- seconds for full scroll
+    local baseDuration = 2.0 -- seconds for full scroll
     local duration = baseDuration / (area.animSpeed or 1.0)
 
     -- Mock event templates (same variety as continuous test)
-    local mockEvents = {
-        "Fireball 1523",
-        "Pyroblast 2841",
-        "Heal +842",
-    }
+    local mockEvents = {"Fireball 1523", "Pyroblast 2841", "Heal +842"}
 
     for i, text in ipairs(mockEvents) do
         -- Use C_Timer.After for staggered firing (0.0, 0.3, 0.6 seconds)
@@ -366,27 +358,28 @@ end
 local function FireAllAreasOnce()
     -- Mock event templates (mix of damage, healing, notifications)
     local mockEvents = {
-        { text = "Fireball 1523",      type = "damage" },
-        { text = "Heal +842",           type = "healing" },
-        { text = "Wind Shear Ready!",   type = "notification" },
-        { text = "Pyroblast 2841",      type = "damage" },
-        { text = "Rejuvenation +234",   type = "healing" },
+        {text = "Fireball 1523", type = "damage"},
+        {text = "Heal +842", type = "healing"},
+        {text = "Wind Shear Ready!", type = "notification"},
+        {text = "Pyroblast 2841", type = "damage"},
+        {text = "Rejuvenation +234", type = "healing"}
     }
 
     -- Fire test events into each unlocked area
     for areaName, _ in pairs(activeFrames) do
-        local area = TSBT.db and TSBT.db.profile
-                      and TSBT.db.profile.scrollAreas
-                      and TSBT.db.profile.scrollAreas[areaName]
-        
+        local area =
+            TSBT.db and TSBT.db.profile and TSBT.db.profile.scrollAreas and
+                TSBT.db.profile.scrollAreas[areaName]
+
         if area then
-            local fontFace, fontSize, outlineFlag, fontAlpha = ResolveFontForArea(areaName)
+            local fontFace, fontSize, outlineFlag, fontAlpha =
+                ResolveFontForArea(areaName)
 
             -- Determine alignment anchor point
             local alignmentMap = {
-                ["Left"]   = "LEFT",
+                ["Left"] = "LEFT",
                 ["Center"] = "CENTER",
-                ["Right"]  = "RIGHT",
+                ["Right"] = "RIGHT"
             }
             local anchorH = alignmentMap[area.alignment] or "CENTER"
 
@@ -400,10 +393,11 @@ local function FireAllAreasOnce()
             -- Fire 3 mock events with stagger
             for i = 1, 3 do
                 local mockEvent = mockEvents[((i - 1) % #mockEvents) + 1]
-                
+
                 C_Timer.After((i - 1) * 0.3, function()
                     TSBT.FireTestText(mockEvent.text, area, fontFace, fontSize,
-                                      outlineFlag, fontAlpha, anchorH, dirMult, duration)
+                                      outlineFlag, fontAlpha, anchorH, dirMult,
+                                      duration)
                 end)
             end
         end
@@ -422,7 +416,8 @@ function TSBT.StartContinuousTesting()
     end
 
     if not hasUnlockedAreas then
-        Addon:Print("No scroll areas are unlocked. Use 'Unlock Scroll Areas' first.")
+        Addon:Print(
+            "No scroll areas are unlocked. Use 'Unlock Scroll Areas' first.")
         return
     end
 
@@ -432,26 +427,25 @@ function TSBT.StartContinuousTesting()
     end
 
     isContinuousTesting = true
-    Addon:Print("Continuous testing started. Animations will repeat every 3 seconds.")
+    Addon:Print(
+        "Continuous testing started. Animations will repeat every 3 seconds.")
 
     -- Fire immediately
     FireAllAreasOnce()
 
     -- Set up repeating timer (3 second interval to allow animations to complete)
     local function RepeatTest()
-        if not isContinuousTesting then
-            return
-        end
-        
+        if not isContinuousTesting then return end
+
         FireAllAreasOnce()
-        
+
         -- Schedule next iteration
         continuousTestTimer = C_Timer.After(3.0, RepeatTest)
     end
 
     -- Schedule first repeat
     continuousTestTimer = C_Timer.After(3.0, RepeatTest)
-    
+
     -- Notify AceConfig to update button name
     LibStub("AceConfigRegistry-3.0"):NotifyChange("TrueStrike")
 end
@@ -460,19 +454,15 @@ end
 -- StopContinuousTesting: Stop continuous test animation loop
 ------------------------------------------------------------------------
 function TSBT.StopContinuousTesting()
-    if not isContinuousTesting then
-        return
-    end
+    if not isContinuousTesting then return end
 
     isContinuousTesting = false
-    
+
     -- Cancel pending timer if any
-    if continuousTestTimer then
-        continuousTestTimer = nil
-    end
+    if continuousTestTimer then continuousTestTimer = nil end
 
     Addon:Print("Continuous testing stopped.")
-    
+
     -- Notify AceConfig to update button name
     LibStub("AceConfigRegistry-3.0"):NotifyChange("TrueStrike")
 end
@@ -480,9 +470,7 @@ end
 ------------------------------------------------------------------------
 -- IsContinuousTesting: Query whether continuous testing is active
 ------------------------------------------------------------------------
-function TSBT.IsContinuousTesting()
-    return isContinuousTesting
-end
+function TSBT.IsContinuousTesting() return isContinuousTesting end
 
 ------------------------------------------------------------------------
 -- DisplayHealWithSecret: Display a heal with SECRET VALUE passthrough.
@@ -495,31 +483,40 @@ end
 -- @param color          (table)  {r, g, b} text color
 -- @param meta           (table)  Metadata: spellName, spellIcon, isCrit, etc.
 ------------------------------------------------------------------------
-function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color, meta)
+function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
+                                    meta)
     if not TSBT.db or not TSBT.db.profile then return end
 
-    local area = TSBT.db.profile.scrollAreas and TSBT.db.profile.scrollAreas[scrollAreaName]
+    local area = TSBT.db.profile.scrollAreas and
+                     TSBT.db.profile.scrollAreas[scrollAreaName]
     if not area then
         -- Fallback to "Incoming" area if specified area not found
-        area = TSBT.db.profile.scrollAreas and TSBT.db.profile.scrollAreas["Incoming"]
+        area = TSBT.db.profile.scrollAreas and
+                   TSBT.db.profile.scrollAreas["Incoming"]
         if not area then return end
     end
 
     -- Check if master and incoming healing are enabled
-    local masterEnabled = TSBT.db.profile.general and TSBT.db.profile.general.enabled
+    local masterEnabled = TSBT.db.profile.general and
+                              TSBT.db.profile.general.enabled
     if not masterEnabled then return end
 
-    local healConf = TSBT.db.profile.incoming and TSBT.db.profile.incoming.healing
+    local outConf = TSBT.db.profile.outgoing and
+                        TSBT.db.profile.outgoing.healing
+    local inConf = TSBT.db.profile.incoming and TSBT.db.profile.incoming.healing
+    local isOutgoing = outConf and (outConf.scrollArea == scrollAreaName)
+    local healConf = isOutgoing and outConf or inConf
     if not healConf or not healConf.enabled then return end
 
     -- Resolve font settings
-    local fontFace, fontSize, outlineFlag, fontAlpha = ResolveFontForArea(scrollAreaName)
+    local fontFace, fontSize, outlineFlag, fontAlpha = ResolveFontForArea(
+                                                           scrollAreaName)
 
     -- Determine alignment
     local alignmentMap = {
-        ["Left"]   = "LEFT",
+        ["Left"] = "LEFT",
         ["Center"] = "CENTER",
-        ["Right"]  = "RIGHT",
+        ["Right"] = "RIGHT"
     }
     local anchorH = alignmentMap[area.alignment] or "CENTER"
 
@@ -531,17 +528,17 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
     local duration = baseDuration / (area.animSpeed or 1.0)
 
     -- Create parent frame for this area
-    local parentKey = string.format("heal_%.0f_%.0f", area.xOffset, area.yOffset)
+    local parentKey =
+        string.format("test_%.0f_%.0f", area.xOffset, area.yOffset)
 
-    if not TSBT._healParentFrames then
-        TSBT._healParentFrames = {}
-    end
+    if not TSBT._testParentFrames then TSBT._testParentFrames = {} end
 
-    local parent = TSBT._healParentFrames[parentKey]
+    local parent = TSBT._testParentFrames[parentKey]
     if not parent then
-        parent = CreateFrame("Frame", "TSBT_HealParent_" .. parentKey, UIParent)
+        parent = CreateFrame("Frame", "TSBT_TestParent_" .. parentKey, UIParent)
         parent:SetFrameStrata("HIGH")
-        TSBT._healParentFrames[parentKey] = parent
+        parent:SetClipsChildren(true)
+        TSBT._testParentFrames[parentKey] = parent
     end
 
     parent:ClearAllPoints()
@@ -566,14 +563,15 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
     if #parent._activeEntries > 0 then
         -- For scroll UP (dirMult=1): find minimum Y position (closest to bottom)
         -- For scroll DOWN (dirMult=-1): find maximum Y position (closest to top)
-        local tailPosition = nil  -- Position of the "last" entry in the scroll direction
+        local tailPosition = nil -- Position of the "last" entry in the scroll direction
 
         for _, entry in ipairs(parent._activeEntries) do
             -- Calculate this entry's CURRENT position
             local elapsed = now - entry.startTime
             local progress = math.min(elapsed / entry.duration, 1.0)
             local distanceTraveled = entry.totalDistance * progress
-            local currentY = entry.startOffset + (distanceTraveled * entry.dirMult)
+            local currentY = entry.startOffset +
+                                 (distanceTraveled * entry.dirMult)
 
             if tailPosition == nil then
                 tailPosition = currentY
@@ -594,13 +592,20 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
         end
     end
 
+    -- Clamp stackOffset so entries never start outside the scroll area bounds
+    if dirMult > 0 then
+        stackOffset = math.max(-area.height, stackOffset)
+    else
+        stackOffset = math.min(area.height, stackOffset)
+    end
+
     -- Register this entry for tracking
     local entryData = {
         startTime = now,
-        startOffset = stackOffset,  -- Where this entry started (may be negative/outside visible area)
+        startOffset = stackOffset, -- Where this entry started (may be negative/outside visible area)
         duration = duration,
         totalDistance = totalDistance,
-        dirMult = dirMult,
+        dirMult = dirMult
     }
     table.insert(parent._activeEntries, entryData)
 
@@ -646,7 +651,7 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
     fs:SetAlpha(fontAlpha)
 
     -- Apply color
-    local c = color or { r = 0.2, g = 1.0, b = 0.2 }
+    local c = color or {r = 0.2, g = 1.0, b = 0.2}
     fs:SetTextColor(c.r or 0.2, c.g or 1.0, c.b or 0.2, 1.0)
 
     -- CRITICAL: Build text with secret value using SetText directly
@@ -724,7 +729,8 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
         end
 
         container:ClearAllPoints()
-        container:SetPoint(startPoint, parent, startPoint, xOffset, stackOffset + yOffset)
+        container:SetPoint(startPoint, parent, startPoint, xOffset,
+                           stackOffset + yOffset)
 
         -- Alpha fade
         local alpha = fontAlpha
@@ -741,9 +747,7 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
         end
 
         fs:SetAlpha(math.max(0, alpha))
-        if iconFrame then
-            iconFrame:SetAlpha(math.max(0, alpha))
-        end
+        if iconFrame then iconFrame:SetAlpha(math.max(0, alpha)) end
     end)
 end
 
@@ -768,19 +772,19 @@ function TSBT.FireTestText(text, area, fontFace, fontSize, outlineFlag,
                            fontAlpha, anchorH, dirMult, duration, color)
     -- Create a unique parent frame for this scroll area based on its position
     -- This allows multiple areas to be tested simultaneously without interference
-    local parentKey = string.format("test_%.0f_%.0f", area.xOffset, area.yOffset)
-    
-    if not TSBT._testParentFrames then
-        TSBT._testParentFrames = {}
-    end
-    
+    local parentKey =
+        string.format("test_%.0f_%.0f", area.xOffset, area.yOffset)
+
+    if not TSBT._testParentFrames then TSBT._testParentFrames = {} end
+
     local parent = TSBT._testParentFrames[parentKey]
     if not parent then
         parent = CreateFrame("Frame", "TSBT_TestParent_" .. parentKey, UIParent)
         parent:SetFrameStrata("HIGH")
+        parent:SetClipsChildren(true)
         TSBT._testParentFrames[parentKey] = parent
     end
-    
+
     -- Position and size the parent for this area
     parent:ClearAllPoints()
     parent:SetSize(area.width, area.height)
@@ -801,9 +805,7 @@ function TSBT.FireTestText(text, area, fontFace, fontSize, outlineFlag,
     local startAnchorV = (dirMult > 0) and "BOTTOM" or "TOP"
     local startPoint = startAnchorV .. (anchorH ~= "CENTER" and anchorH or "")
     -- Normalize point name: "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT", etc.
-    if anchorH == "CENTER" then
-        startPoint = startAnchorV
-    end
+    if anchorH == "CENTER" then startPoint = startAnchorV end
 
     fs:SetPoint(startPoint, parent, startPoint, 0, 0)
 
@@ -839,7 +841,7 @@ function TSBT.FireTestText(text, area, fontFace, fontSize, outlineFlag,
             yOffset = totalDistance * progress * dirMult
             -- Horizontal arc: peaks at midpoint, returns to 0
             -- Uses sin curve for smooth parabolic feel
-            local arcWidth = area.width * 0.3  -- 30% of area width for arc
+            local arcWidth = area.width * 0.3 -- 30% of area width for arc
             xOffset = math.sin(progress * math.pi) * arcWidth
 
         elseif animStyle == "Static" or animStyle == "static" then
