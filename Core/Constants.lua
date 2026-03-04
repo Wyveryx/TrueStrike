@@ -8,7 +8,7 @@ local ADDON_NAME, TSBT = ...
 ------------------------------------------------------------------------
 -- Version & Identity
 ------------------------------------------------------------------------
-TSBT.VERSION = "0.3.1-alpha"
+TSBT.VERSION = "0.3.2-alpha"
 TSBT.ADDON_TITLE = "TrueStrike Battle Text"
 TSBT.SLASH_PRIMARY = "/tsbt"
 TSBT.SLASH_SECONDARY = "/truestrike"
@@ -144,3 +144,7 @@ TSBT.PET_AGGREGATION = {
     ["Generic (\"Pet Hit X\")"]   = "generic",
     ["Attempt Pet Name"]          = "named",
 }
+
+-- Expose shared namespace globally for macro/console access.
+-- Required for /run diagnostics and external addon interop.
+_G.TSBT = TSBT
