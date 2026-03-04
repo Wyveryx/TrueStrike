@@ -31,7 +31,8 @@ local function DispatchDesignationEvent(event, ...)
     end
 
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
-        local unit, castGUID, spellID = ...
+        local unit, castGUID, spellID, castBarID = ...
+        local _ = castBarID
         if unit == "player" and TS_CastAnchor and TS_CastAnchor.OnSpellcastSucceeded then
             TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID)
         end
@@ -89,10 +90,10 @@ local function RegisterDesignationSafeInit()
     end
 
     designationEventFrame = CreateFrame("Frame")
-    designationEventFrame:RegisterEvent("UNIT_SPELLCAST_SENT")
-    designationEventFrame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-    designationEventFrame:RegisterEvent("UNIT_SPELLCAST_FAILED")
-    designationEventFrame:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
+    designationEventFrame:RegisterUnitEvent("UNIT_SPELLCAST_SENT",        "player")
+    designationEventFrame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED",   "player")
+    designationEventFrame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED",      "player")
+    designationEventFrame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
     designationEventFrame:RegisterEvent("UNIT_AURA")
     designationEventFrame:RegisterEvent("SPELLS_CHANGED")
     designationEventFrame:RegisterEvent("COMBAT_TEXT_UPDATE")
@@ -407,4 +408,3 @@ function Addon:HandleResetCommand()
     self.db:ResetProfile()
     self:Print("Profile reset to defaults.")
 end
-

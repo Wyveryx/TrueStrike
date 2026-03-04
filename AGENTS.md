@@ -40,6 +40,7 @@ What CTU provides: data (caster name string), arg3 (amount as secret value), arg
 What CTU fires for: self-heals, incoming heals, energize events, indirect procs (e.g. Earth Shield).
 What CTU does NOT fire for: outgoing damage, direct heals cast on other players.
 CTU does not provide spell name — attribution requires UNIT_SPELLCAST correlation.
+RouteToDisplay receives spellID and isCrit from the attribution result and passes the raw secret value directly to DisplayHealWithSecret. The secret value travels as a function argument only — never stored in a table.
 
 # Proven Event Order
 1. UNIT_SPELLCAST_SENT — fires immediately on cast initiation. Use for queuing instant casts.
@@ -86,6 +87,7 @@ All flags live in Parser/TS_DesigConfig.lua. Current defaults:
   is architecturally plumbed, but has never been validated in a live
   group environment. Flagged as TRUESTRIKE_INCOMING_HEAL_PROBE = false.
   Requires at least one group session to confirm before removing flag.
+- Rich display (icon + spell name) for damage events not yet implemented. DisplayHealWithSecret equivalent for damage is future work.
 
 # Revision History
 - 0.3.0-alpha: Wired TS_CTURouter display dispatch via RouteToDisplay().
@@ -95,3 +97,4 @@ All flags live in Parser/TS_DesigConfig.lua. Current defaults:
 
 - 0.3.2-alpha: Exposed _G.TSBT global in Constants.lua for macro/console debugging; fixed version sync between Constants.lua and TrueStrike.toc.
 - 0.3.3-alpha: Replaced broken C_CombatText.GetCurrentEventInfo() with GetCurrentCombatTextEventInfo() in TS_CTURouter; registered Riptide (61295) as HOT in TS_Registry.SeedKnownSpells().
+- 0.3.4-alpha: Wired DisplayHealWithSecret into live heal pipeline; fixed Riptide initial heal canRoute; switched spellcast events to RegisterUnitEvent.
