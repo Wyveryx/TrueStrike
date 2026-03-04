@@ -92,3 +92,5 @@ All flags live in Parser/TS_DesigConfig.lua. Current defaults:
                First revision targeting full in-game combat text display.
 - 0.2.0-alpha: Designation Engine implementation (Codex Prompt v1).
 - 0.1.0-alpha: Initial scaffold.
+
+- 0.3.2-alpha: Exposed _G.TSBT global in Constants.lua for macro/console debugging; fixed version sync between Constants.lua and TrueStrike.toc.
