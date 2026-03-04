@@ -31,7 +31,7 @@ local function DispatchDesignationEvent(event, ...)
     end
 
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
-        local unit, castGUID, spellID, castBarID = ...
+        local unit, target, castGUID, spellID = ...
         local _ = castBarID
         if unit == "player" and TS_CastAnchor and TS_CastAnchor.OnSpellcastSucceeded then
             TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID)
