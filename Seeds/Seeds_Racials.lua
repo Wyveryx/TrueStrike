@@ -7,6 +7,9 @@
 -- This file is loaded in TrueStrike.toc but the seed function is
 -- commented out and must not be called until data is confirmed.
 ------------------------------------------------------------------------
+TS_Registry = TS_Registry or {}
+
+
 
 --[[ FLAGGED: Racial Seeds — deferred pending empirical probe data
      Why flagged:         Racial spell IDs unconfirmed. No CTU observation

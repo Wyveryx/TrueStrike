@@ -8,6 +8,8 @@
 -- TS_Registry.SeedKnownSpells() — they are architectural, not data.
 ------------------------------------------------------------------------
 
+TS_Registry = TS_Registry or {}
+
 function TS_Registry.SeedShaman()
     local D = TS_Registry.DESIGNATION
 
