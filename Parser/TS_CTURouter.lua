@@ -11,7 +11,7 @@ TS_CTURouter.CTU_SLOT_FAMILY = {
     SPELL_DAMAGE_CRIT = "Damage",
     PERIODIC_DAMAGE = "DoT",
     PERIODIC_DAMAGE_CRIT = "DoT",
-    DAMAGE = "Melee",
+    DAMAGE = "Melee"
 }
 
 local _seq = 0
@@ -20,38 +20,40 @@ local _ignorable = {
     MISS = true,
     DODGE = true,
     BLOCK = true,
-    RESIST = true,
+    RESIST = true
 }
 
 local function RouteToDisplay(ctuType, valueStr, spellID, isCrit, arg3_secret)
     local profile = TSBT.db and TSBT.db.profile
-    if not profile then
-        return
+    if not profile then return end
+
+    if TSBT.PipelineDiag then
+        TSBT.PipelineDiag.routeToDisplay = TSBT.PipelineDiag.routeToDisplay + 1
+        TSBT.PipelineDiag.lastFamily = TS_CTURouter.CTU_SLOT_FAMILY[ctuType] or
+                                           "nil"
     end
 
     local routing = {
         Heal = {
             areaName = profile.outgoing.healing.scrollArea,
-            enabled = profile.outgoing.healing.enabled,
+            enabled = profile.outgoing.healing.enabled
         },
         HoT = {
             areaName = profile.incoming.healing.scrollArea,
-            enabled = profile.incoming.healing.enabled,
+            enabled = profile.incoming.healing.enabled
         },
         Damage = {
             areaName = profile.outgoing.damage.scrollArea,
-            enabled = profile.outgoing.damage.enabled,
+            enabled = profile.outgoing.damage.enabled
         },
         DoT = {
             areaName = profile.outgoing.damage.scrollArea,
-            enabled = profile.outgoing.damage.enabled,
-        },
+            enabled = profile.outgoing.damage.enabled
+        }
     }
 
     local family = TS_CTURouter.CTU_SLOT_FAMILY[ctuType]
-    if not family then
-        return
-    end
+    if not family then return end
 
     if family == "Melee" then
         -- FLAGGED: Melee attribution gated.
@@ -61,24 +63,18 @@ local function RouteToDisplay(ctuType, valueStr, spellID, isCrit, arg3_secret)
     end
 
     local route = routing[family]
-    if not route then
-        return
-    end
+    if not route then return end
 
     local areaName = route.areaName
     local enabled = route.enabled
-    if enabled == false then
-        return
-    end
-    if not areaName or areaName == "" then
-        return
-    end
+    if enabled == false then return end
+    if not areaName or areaName == "" then return end
 
     -- Secret value already converted via TS_Taint.SafeStr before
     -- this point. valueStr is display-safe. Do not unwrap further.
     local ok, err = pcall(function()
         if family == "Heal" or family == "HoT" then
-            local meta = { isCrit = isCrit or false }
+            local meta = {isCrit = isCrit or false}
             if type(spellID) == "number" and spellID > 0 then
                 local infoOK, info = pcall(C_Spell.GetSpellInfo, spellID)
                 if infoOK and type(info) == "table" then
@@ -93,14 +89,11 @@ local function RouteToDisplay(ctuType, valueStr, spellID, isCrit, arg3_secret)
         TSBT.DisplayText(areaName, valueStr)
     end)
     if not ok then
-        table.insert(
-            TS_DesigConfig.EnsureLogTable("taintErrors"),
-            {
-                ["function"] = "RouteToDisplay",
-                error = tostring(err),
-                context = ctuType,
-            }
-        )
+        table.insert(TS_DesigConfig.EnsureLogTable("taintErrors"), {
+            ["function"] = "RouteToDisplay",
+            error = tostring(err),
+            context = ctuType
+        })
     end
 end
 
@@ -109,31 +102,27 @@ local function LogUnknown(ctuType)
         spellID = nil,
         spellName = nil,
         ctuType = ctuType,
-        timestamp = GetServerTime(),
+        timestamp = GetServerTime()
     })
 end
 
-function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpellTime)
+function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID,
+                                    lastSpellTime)
     local expectedDesig = TS_CTURouter.CTU_SLOT_FAMILY[ctuType]
-    if not expectedDesig then
-        return nil
-    end
+    if not expectedDesig then return nil end
 
     -- Earth Shield IDs are Proc in TS_Registry, so the type gate naturally prevents false HoT matching.
-    if lastSpellID and lastSpellTime and (GetTime() - lastSpellTime) < (TS_DesigConfig.PROMOTION_WINDOW_SECONDS or 0.150) then
+    if lastSpellID and lastSpellTime and (GetTime() - lastSpellTime) <
+        (TS_DesigConfig.PROMOTION_WINDOW_SECONDS or 0.150) then
         if TS_Registry.GetDesignation(lastSpellID) == expectedDesig then
             local slot = TS_SlotManager.FindHotSlot(lastSpellID, "player")
-            if slot then
-                return slot.slotID, "HIGH", slot.spellID
-            end
+            if slot then return slot.slotID, "HIGH", slot.spellID end
         end
     end
 
     local playerAuras = auraSnapshot and auraSnapshot.player or {}
     local inSnapshot = {}
-    for _, aura in ipairs(playerAuras) do
-        inSnapshot[aura.spellID] = true
-    end
+    for _, aura in ipairs(playerAuras) do inSnapshot[aura.spellID] = true end
 
     for _, slot in ipairs(TS_SlotManager.GetActiveSlots()) do
         if TS_Registry.GetDesignation(slot.spellID) == expectedDesig then
@@ -143,7 +132,7 @@ function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpel
                 spellID = slot.spellID,
                 ctuType = ctuType,
                 confidence = confidence,
-                deltaPrev = 0,
+                deltaPrev = 0
             })
             return slot.slotID, confidence, slot.spellID
         end
@@ -161,10 +150,15 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     -- GetCurrentCombatTextEventInfo() is the correct global. Verified in-game 2026.
     local _, arg3 = GetCurrentCombatTextEventInfo()
     local valueStr = TS_Taint.SafeStr(arg3)
-    local isCrit = ctuType == "HEAL_CRIT"
-        or ctuType == "PERIODIC_HEAL_CRIT"
-        or ctuType == "SPELL_DAMAGE_CRIT"
-        or ctuType == "PERIODIC_DAMAGE_CRIT"
+
+    if TSBT.PipelineDiag then
+        TSBT.PipelineDiag.ctuFired = TSBT.PipelineDiag.ctuFired + 1
+        TSBT.PipelineDiag.lastCtuType = ctuType or "nil"
+    end
+
+    local isCrit = ctuType == "HEAL_CRIT" or ctuType == "PERIODIC_HEAL_CRIT" or
+                       ctuType == "SPELL_DAMAGE_CRIT" or ctuType ==
+                       "PERIODIC_DAMAGE_CRIT"
 
     --[[ DISPROVEN: Arithmetic on CTU secret values
          Do not implement. Reason: CTU value must be treated as opaque in WoW 12.0.1.
@@ -182,9 +176,7 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     --]]
 
     local expectedDesig = TS_CTURouter.CTU_SLOT_FAMILY[ctuType]
-    if not expectedDesig and not _ignorable[ctuType] then
-        LogUnknown(ctuType)
-    end
+    if not expectedDesig and not _ignorable[ctuType] then LogUnknown(ctuType) end
 
     --[[ FLAGGED: UNIT_COMBAT outgoing melee probe
          Why flagged:         UNIT_COMBAT confirmed Outcome A (incoming-only for
@@ -215,7 +207,9 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
 
     local auraSnapshot = TS_AuraScanner.SnapshotAllWatchedUnits()
     local lastSpellID, lastSpellTime = TS_CastAnchor.GetLastSucceeded()
-    local slotID, confidence, matchedSpellID = TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpellTime)
+    local slotID, confidence, matchedSpellID =
+        TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID,
+                                   lastSpellTime)
 
     -- Determine whether this event can route to display.
     -- AttributeTick() handles HoTs and close-window anchored spells.
@@ -228,10 +222,8 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
         -- Normal attribution path: HoT slot match or promotion-window anchor.
         canRoute = true
 
-    elseif (ctuType == "HEAL" or ctuType == "HEAL_CRIT")
-        and lastSpellID
-        and lastSpellTime
-        and (GetTime() - lastSpellTime) < 2.0 then
+    elseif (ctuType == "HEAL" or ctuType == "HEAL_CRIT") and lastSpellID and
+        lastSpellTime and (GetTime() - lastSpellTime) < 2.0 then
         local anchorDesig = TS_Registry.GetDesignation(lastSpellID)
         if anchorDesig == "Heal" or anchorDesig == "HoT" then
             -- Direct heal attributed via recent cast anchor (wider 2.0s window).
@@ -239,25 +231,23 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
             -- so the 0.150s promotion window is too tight for this path.
             -- HoT spells (e.g. Riptide 61295) fire an initial HEAL event before their ticks begin.
             canRoute = true
-            slotID = tostring(lastSpellID)   -- string only, for logging
+            slotID = tostring(lastSpellID) -- string only, for logging
             confidence = "ANCHOR"
         end
 
-    elseif (ctuType == "SPELL_DAMAGE" or ctuType == "SPELL_DAMAGE_CRIT")
-        and lastSpellID
-        and lastSpellTime
-        and (GetTime() - lastSpellTime) < 2.0
-        and TS_Registry.GetDesignation(lastSpellID) == "Damage" then
+    elseif (ctuType == "SPELL_DAMAGE" or ctuType == "SPELL_DAMAGE_CRIT") and
+        lastSpellID and lastSpellTime and (GetTime() - lastSpellTime) < 2.0 and
+        TS_Registry.GetDesignation(lastSpellID) == "Damage" then
         -- Spell damage attributed via recent cast anchor.
         canRoute = true
-        slotID = tostring(lastSpellID)   -- string only, for logging
+        slotID = tostring(lastSpellID) -- string only, for logging
         confidence = "ANCHOR"
 
     elseif ctuType == "PERIODIC_DAMAGE" or ctuType == "PERIODIC_DAMAGE_CRIT" then
         -- DoT ticks: route by type alone. Attribution is best-effort.
         -- No slotID match required; the CTU type itself confirms player authorship.
         canRoute = true
-        slotID = "DoT_unattributed"      -- string only, for logging
+        slotID = "DoT_unattributed" -- string only, for logging
         confidence = "LOW"
     end
 
@@ -268,7 +258,7 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
         valueStr = valueStr,
         correlatedSpellID = slotID,
         desig = expectedDesig,
-        confidence = confidence,
+        confidence = confidence
     })
 
     local resolvedSpellID = nil
@@ -276,6 +266,16 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
         resolvedSpellID = lastSpellID
     elseif type(matchedSpellID) == "number" and matchedSpellID > 0 then
         resolvedSpellID = matchedSpellID
+    end
+
+    if TSBT.PipelineDiag then
+        if canRoute then
+            TSBT.PipelineDiag.canRouteTrue = TSBT.PipelineDiag.canRouteTrue + 1
+            TSBT.PipelineDiag.lastSpellID = resolvedSpellID or 0
+        else
+            TSBT.PipelineDiag.canRouteFalse =
+                TSBT.PipelineDiag.canRouteFalse + 1
+        end
     end
 
     if canRoute then
