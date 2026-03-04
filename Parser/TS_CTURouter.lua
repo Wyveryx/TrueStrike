@@ -206,6 +206,7 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     --]]
 
     local lastSucceededID, lastSucceededTime = TS_CastAnchor.GetLastSucceeded()
+    local lastSentID,      lastSentTime      = TS_CastAnchor.GetLastSent()
 
     --[[ DISPROVEN: SENT anchor fallback for direct event attribution
          Do not implement. Reason: UNIT_SPELLCAST_SENT fires before CTU, but
@@ -219,12 +220,16 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
          it is absent. TS_CastAnchor.OnSpellcastSucceeded now guards against
          Proc/Ignored spells overwriting the anchor, which eliminates the race.
          Source: OutgoingHealCapture v13 empirical probe sessions + v0.3.10 regression.
+         NOTE v0.3.12: SENT is re-introduced ONLY for canRoute eligibility gating.
+         SENT is never used for resolvedSpellID. See canRoute block below.
     --]]
 
-    -- Direct and periodic events both use SUCCEEDED anchor only.
-    -- No SENT fallback. A clean miss is preferable to a wrong attribution.
-    local lastSpellID   = lastSucceededID
-    local lastSpellTime = lastSucceededTime
+    -- For canRoute eligibility: use SENT if SUCCEEDED is absent.
+    -- SENT always contains the current cast at the moment CTU fires.
+    -- This only opens the display gate — it does not control spell name or icon.
+    -- resolvedSpellID uses SUCCEEDED only — see resolution block below.
+    local lastSpellID   = lastSucceededID or lastSentID
+    local lastSpellTime = lastSucceededTime or lastSentTime
     local auraSnapshot = TS_AuraScanner and TS_AuraScanner.SnapshotAllWatchedUnits and TS_AuraScanner.SnapshotAllWatchedUnits() or {}
 
     local slotID, confidence, matchedSpellID =
@@ -289,9 +294,12 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
             resolvedSpellID = matchedSpellID
         end
     else
-        -- Direct events: prefer cast anchor, fall back to slot match.
-        if type(lastSpellID) == "number" and lastSpellID > 0 then
-            resolvedSpellID = lastSpellID
+        -- Direct events: SUCCEEDED anchor only for spell name and icon.
+        -- SENT must never be used here — it may contain a proc or previous cast.
+        -- If SUCCEEDED is nil, resolvedSpellID stays nil and no icon/name displays.
+        -- A missing icon is acceptable. A wrong icon is not.
+        if type(lastSucceededID) == "number" and lastSucceededID > 0 then
+            resolvedSpellID = lastSucceededID
         elseif type(matchedSpellID) == "number" and matchedSpellID > 0 then
             resolvedSpellID = matchedSpellID
         end
