@@ -1,16 +1,8 @@
 TrueStrike
-|   CHANGELOG.md
-|   CLAUDE.md
-|   ClaudeOpus4.5.lnk
-|   ClaudeOpus4.5.ps1
-|   Claude_Opus_Findings.md
-|   DEV_GUIDE.md
-|   Error Resolutions.md
-|   Error_Resolutions.md
-|   README.md
-|   Self Heals Testing.txt
-|   Testing Regimine.docx
+|   AGENTS.md
+|   Testing Regimine.md
 |   TrueStrike.toc
+|   TrueStrike_Codex_Prompt_DesignationEngine_v1.md
 |   _FolderStructure.txt
 |   
 +---.claude
@@ -71,7 +63,6 @@ TrueStrike
 |   |   |       AceConfigDialog-3.0.lua
 |   |   |       AceConfigDialog-3.0.xml
 |   |   |       
-|   |   +---AceConfigDropdown-3.0
 |   |   \---AceConfigRegistry-3.0
 |   |           AceConfigRegistry-3.0.lua
 |   |           AceConfigRegistry-3.0.xml
@@ -164,16 +155,18 @@ TrueStrike
 |           LibStub.lua
 |           
 +---Parser
-|       CombatLog_Detect.lua
-|       Cooldowns_Detect.lua
-|       Correlation_Logic.lua
-|       Event_Collector.lua
-|       HealAttribution.lua
-|       Incoming_Detect.lua
-|       Normalize.lua
-|       Outgoing_Detect.lua
-|       Pulse_Engine.lua
-|       State_Manager.lua
+|       TS_AuraScanner.lua
+|       TS_CastAnchor.lua
+|       TS_CTURouter.lua
+|       TS_DesigConfig.lua
+|       TS_Registry.lua
+|       TS_SlotManager.lua
+|       TS_SpellbookScanner.lua
+|       TS_Taint.lua
+|       
++---Seeds
+|       Seeds_Racials.lua
+|       Seeds_Shaman.lua
 |       
 \---UI
         Config.lua
