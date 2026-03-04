@@ -5,6 +5,8 @@ TS_CastAnchor = TS_CastAnchor or {}
 local _pendingCasts = {}
 local _lastSucceededSpellID = nil
 local _lastSucceededTime = nil
+local _lastSentSpellID = nil
+local _lastSentTime = nil
 
 local function LogAnchor(spellID, castGUID, target)
     local desig = TS_Registry.GetDesignation(spellID)
@@ -13,11 +15,15 @@ local function LogAnchor(spellID, castGUID, target)
         castGUID = castGUID,
         target = target,
         desig = desig,
-        timestamp = GetServerTime(),
+        timestamp = GetServerTime()
     })
 
     if TS_DesigConfig and TS_DesigConfig.SafeLog then
-        TS_DesigConfig.SafeLog("[TS_ANCHOR]", string.format("CAST_ANCHOR {spellID=%s,castGUID=%s,target=%s,desig=%s,timestamp=%s}", tostring(spellID), tostring(castGUID), tostring(target), tostring(desig), tostring(GetServerTime())))
+        TS_DesigConfig.SafeLog("[TS_ANCHOR]", string.format(
+                                   "CAST_ANCHOR {spellID=%s,castGUID=%s,target=%s,desig=%s,timestamp=%s}",
+                                   tostring(spellID), tostring(castGUID),
+                                   tostring(target), tostring(desig),
+                                   tostring(GetServerTime())))
     end
 end
 
@@ -29,53 +35,46 @@ function TS_CastAnchor.GetLastSucceeded()
     return _lastSucceededSpellID, _lastSucceededTime
 end
 
+function TS_CastAnchor.GetLastSent() return _lastSentSpellID, _lastSentTime end
+
 function TS_CastAnchor.OnSpellcastSent(unit, target, castGUID, spellID)
-    if not Enabled() or unit ~= "player" or not castGUID then
-        return
-    end
+    if not Enabled() or unit ~= "player" or not castGUID then return end
 
     _pendingCasts[castGUID] = {
         spellID = spellID,
         target = TS_Taint.SafeStr(target),
-        sentTime = GetTime(),
+        sentTime = GetTime()
     }
 
+    _lastSentSpellID = spellID
+    _lastSentTime = GetTime()
+
     LogAnchor(spellID, castGUID, _pendingCasts[castGUID].target)
+
 end
 
 function TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID, castBarID)
-    if not Enabled() or unit ~= "player" then
-        return
-    end
-
+    if not Enabled() or unit ~= "player" then return end
 
     local pending = _pendingCasts[castGUID]
-    if not pending then
-        return
-    end
+    if not pending then return end
 
     _lastSucceededSpellID = spellID
     _lastSucceededTime = GetTime()
 
-    if TS_Registry.GetDesignation(spellID) == TS_Registry.DESIGNATION.HOT and TS_AuraScanner then
-        TS_AuraScanner.ScanUnit("player")
-    end
+    if TS_Registry.GetDesignation(spellID) == TS_Registry.DESIGNATION.HOT and
+        TS_AuraScanner then TS_AuraScanner.ScanUnit("player") end
 
     if spellID == 5394 and TS_DesigConfig.TRUESTRIKE_SYNTHETIC_TOTEM_SLOTS then
-        TS_SlotManager.CreateSyntheticTotemSlot(5394, 52042, "Healing Stream", 15)
+        TS_SlotManager.CreateSyntheticTotemSlot(5394, 52042, "Healing Stream",
+                                                15)
     end
 
     local synth = TS_Registry.GetSyntheticDesignation(spellID)
     if synth and TS_DesigConfig and TS_DesigConfig[synth.featureFlag] then
-        TS_SlotManager.NewHotSlot(
-            synth.auraSpellID,
-            synth.tickSpellName,
-            "player",
-            nil,
-            nil,
-            nil,
-            "SYNTHETIC_DESIGNATION"
-        )
+        TS_SlotManager.NewHotSlot(synth.auraSpellID, synth.tickSpellName,
+                                  "player", nil, nil, nil,
+                                  "SYNTHETIC_DESIGNATION")
     end
 
     _pendingCasts[castGUID] = nil
@@ -83,30 +82,25 @@ function TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID, castBarID)
 end
 
 function TS_CastAnchor.OnSpellcastFailed(unit, target, castGUID, spellID)
-    if not Enabled() or unit ~= "player" then
-        return
-    end
+    if not Enabled() or unit ~= "player" then return end
     _pendingCasts[castGUID] = nil
 end
 
 function TS_CastAnchor.OnSpellcastInterrupted(unit, target, castGUID, spellID)
-    if not Enabled() or unit ~= "player" then
-        return
-    end
+    if not Enabled() or unit ~= "player" then return end
     _pendingCasts[castGUID] = nil
 end
 
-
 function TS_CastAnchor.OnUnitAura(unit, updateInfo, spellbookCache)
     local watched = TS_DesigConfig and TS_DesigConfig.WATCHED_UNITS
-    if not (watched and watched[unit]) then
-        return
-    end
+    if not (watched and watched[unit]) then return end
 
     if unit == "player" and InCombatLockdown and InCombatLockdown() then
-        TS_Taint.DetectNonSelfAuras(updateInfo, spellbookCache, function(spellIDNum, spellIDStr)
+        TS_Taint.DetectNonSelfAuras(updateInfo, spellbookCache,
+                                    function(spellIDNum, spellIDStr)
             if not TS_Registry.GetDesignation(spellIDNum) then
-                TS_Registry.RegisterSpell(spellIDNum, spellIDStr, TS_Registry.DESIGNATION.UNKNOWN)
+                TS_Registry.RegisterSpell(spellIDNum, spellIDStr,
+                                          TS_Registry.DESIGNATION.UNKNOWN)
             end
         end)
         TS_SlotManager.PruneExpiredSlots()
@@ -115,9 +109,13 @@ function TS_CastAnchor.OnUnitAura(unit, updateInfo, spellbookCache)
 
     local scanned = TS_AuraScanner.ScanUnit(unit) or {}
     for _, aura in ipairs(scanned) do
-        if TS_Registry.GetDesignation(aura.spellID) == TS_Registry.DESIGNATION.HOT then
+        if TS_Registry.GetDesignation(aura.spellID) ==
+            TS_Registry.DESIGNATION.HOT then
             if not TS_SlotManager.FindHotSlot(aura.spellID, unit) then
-                TS_SlotManager.NewHotSlot(aura.spellID, aura.name, unit, aura.expirationTime, aura.computedExpiry, aura.duration, "AURA_SCAN")
+                TS_SlotManager.NewHotSlot(aura.spellID, aura.name, unit,
+                                          aura.expirationTime,
+                                          aura.computedExpiry, aura.duration,
+                                          "AURA_SCAN")
             end
         end
     end
@@ -129,16 +127,15 @@ function TS_CastAnchor.Reset()
     _pendingCasts = {}
     _lastSucceededSpellID = nil
     _lastSucceededTime = nil
+    _lastSentSpellID = nil
+    _lastSentTime = nil
 end
+
 function TS_CastAnchor.PruneStale(maxAge)
-    if not Enabled() then
-        return
-    end
+    if not Enabled() then return end
 
     local cutoff = GetTime() - maxAge
     for castGUID, cast in pairs(_pendingCasts) do
-        if cast.sentTime < cutoff then
-            _pendingCasts[castGUID] = nil
-        end
+        if cast.sentTime < cutoff then _pendingCasts[castGUID] = nil end
     end
 end
