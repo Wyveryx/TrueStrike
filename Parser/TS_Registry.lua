@@ -124,5 +124,6 @@ function TS_Registry.SeedKnownSpells()
     TS_Registry.RegisterSpell(470411, "Voltaic Blaze", D.DAMAGE_AOE)
     TS_Registry.RegisterSpell(1064, "Chain Heal", D.HEAL)
     TS_Registry.RegisterSpell(51945, "Earthliving", D.PROC)
+    TS_Registry.RegisterSpell(61295, "Riptide", D.HOT)
 
 end

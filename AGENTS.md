@@ -94,3 +94,4 @@ All flags live in Parser/TS_DesigConfig.lua. Current defaults:
 - 0.1.0-alpha: Initial scaffold.
 
 - 0.3.2-alpha: Exposed _G.TSBT global in Constants.lua for macro/console debugging; fixed version sync between Constants.lua and TrueStrike.toc.
+- 0.3.3-alpha: Replaced broken C_CombatText.GetCurrentEventInfo() with GetCurrentCombatTextEventInfo() in TS_CTURouter; registered Riptide (61295) as HOT in TS_Registry.SeedKnownSpells().
