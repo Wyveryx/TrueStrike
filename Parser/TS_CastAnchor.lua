@@ -59,8 +59,24 @@ function TS_CastAnchor.OnSpellcastSucceeded(unit, castGUID, spellID, castBarID)
     local pending = _pendingCasts[castGUID]
     if not pending then return end
 
-    _lastSucceededSpellID = spellID
-    _lastSucceededTime = GetTime()
+    -- Only update the succeeded anchor if this spell can legitimately be
+    -- the source of a CTU event. Proc and Ignored spells must never overwrite
+    -- the anchor — they fire SUCCEEDED instantly and will steal attribution
+    -- from the actual cast spell whose CTU has already fired or is about to fire.
+    -- Ancestral Awakening (382311) is the confirmed example of this race condition.
+    local spellDesig = TS_Registry.GetDesignation(spellID)
+    local isAttributable = spellDesig == TS_Registry.DESIGNATION.HEAL
+                        or spellDesig == TS_Registry.DESIGNATION.HOT
+                        or spellDesig == TS_Registry.DESIGNATION.DAMAGE
+                        or spellDesig == TS_Registry.DESIGNATION.DAMAGE_AOE
+                        or spellDesig == TS_Registry.DESIGNATION.DOT
+                        or spellDesig == TS_Registry.DESIGNATION.MELEE
+                        or spellDesig == nil  -- unknown spells may still be attributable
+
+    if isAttributable then
+        _lastSucceededSpellID = spellID
+        _lastSucceededTime    = GetTime()
+    end
 
     if TS_Registry.GetDesignation(spellID) == TS_Registry.DESIGNATION.HOT and
         TS_AuraScanner then TS_AuraScanner.ScanUnit("player") end
