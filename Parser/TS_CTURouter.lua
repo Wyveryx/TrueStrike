@@ -144,7 +144,9 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     TS_CastAnchor.PruneStale(10)
     TS_SlotManager.PruneExpiredSlots()
 
-    local _, _, _, arg3 = C_CombatText.GetCurrentEventInfo()
+    -- NOTE: C_CombatText.GetCurrentEventInfo() returns nil in WoW 12.0 Midnight.
+    -- GetCurrentCombatTextEventInfo() is the correct global. Verified in-game 2026.
+    local _, arg3 = GetCurrentCombatTextEventInfo()
     local valueStr = TS_Taint.SafeStr(arg3)
 
     --[[ DISPROVEN: Arithmetic on CTU secret values
