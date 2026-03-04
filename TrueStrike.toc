@@ -2,7 +2,7 @@
 ## Title: TrueStrike Battle Text
 ## Notes: Accurate floating combat text with confidence-based attribution
 ## Author: TrueStrike Team
-## Version: 0.3.13-alpha
+## Version: 0.3.14-alpha
 ## SavedVariables: TrueStrikeDB
 ## OptionalDeps: Ace3, LibSharedMedia-3.0
 
