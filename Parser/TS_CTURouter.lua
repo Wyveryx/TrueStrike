@@ -206,37 +206,26 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     --]]
 
     local lastSucceededID, lastSucceededTime = TS_CastAnchor.GetLastSucceeded()
-    local lastSentID, lastSentTime = TS_CastAnchor.GetLastSent()
+
+    --[[ DISPROVEN: SENT anchor fallback for direct event attribution
+         Do not implement. Reason: UNIT_SPELLCAST_SENT fires before CTU, but
+         instant-cast proc spells (e.g. Ancestral Awakening 382311) also fire
+         SUCCEEDED immediately, overwriting the anchor in the window between
+         CTU and the actual cast spell's SUCCEEDED. The SENT fallback cannot
+         distinguish between a legitimate cast-time spell pending SUCCEEDED and
+         a proc that has already stolen the anchor slot. Using SENT produced
+         confirmed wrong attributions in v0.3.10-alpha in-game testing.
+         The correct behavior is to use SUCCEEDED only and miss cleanly when
+         it is absent. TS_CastAnchor.OnSpellcastSucceeded now guards against
+         Proc/Ignored spells overwriting the anchor, which eliminates the race.
+         Source: OutgoingHealCapture v13 empirical probe sessions + v0.3.10 regression.
+    --]]
+
+    -- Direct and periodic events both use SUCCEEDED anchor only.
+    -- No SENT fallback. A clean miss is preferable to a wrong attribution.
+    local lastSpellID   = lastSucceededID
+    local lastSpellTime = lastSucceededTime
     local auraSnapshot = TS_AuraScanner and TS_AuraScanner.SnapshotAllWatchedUnits and TS_AuraScanner.SnapshotAllWatchedUnits() or {}
-
-    -- For direct heals and damage only: fall back to SENT anchor when CTU fires
-    -- before SUCCEEDED (cast-time spells). PERIODIC events must never use this
-    -- fallback -- they attribute via slot manager only.
-    local isDirectEvent =
-        ctuType == "HEAL" or ctuType == "HEAL_CRIT" or ctuType == "SPELL_DAMAGE" or
-            ctuType == "SPELL_DAMAGE_CRIT"
-
-    local lastSpellID, lastSpellTime
-    if isDirectEvent then
-        -- Prefer SUCCEEDED anchor. Only fall back to SENT if SUCCEEDED is absent
-        -- AND the SENT spell is not a Proc designation.
-        -- This prevents Ancestral Awakening (382311, Proc) and similar
-        -- simultaneous proc fires from stealing attribution from the actual cast.
-        if lastSucceededID then
-            lastSpellID  = lastSucceededID
-            lastSpellTime = lastSucceededTime
-        elseif lastSentID then
-            local sentDesig = TS_Registry.GetDesignation(lastSentID)
-            if sentDesig ~= TS_Registry.DESIGNATION.PROC and
-               sentDesig ~= TS_Registry.DESIGNATION.IGNORED then
-                lastSpellID  = lastSentID
-                lastSpellTime = lastSentTime
-            end
-        end
-    else
-        lastSpellID  = lastSucceededID
-        lastSpellTime = lastSucceededTime
-    end
 
     local slotID, confidence, matchedSpellID =
         TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID,
