@@ -8,7 +8,7 @@ local ADDON_NAME, TSBT = ...
 ------------------------------------------------------------------------
 -- Version & Identity
 ------------------------------------------------------------------------
-TSBT.VERSION = "0.3.4-alpha"
+TSBT.VERSION = "0.3.10-alpha"
 TSBT.ADDON_TITLE = "TrueStrike Battle Text"
 TSBT.SLASH_PRIMARY = "/tsbt"
 TSBT.SLASH_SECONDARY = "/truestrike"

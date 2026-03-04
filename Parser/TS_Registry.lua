@@ -99,7 +99,7 @@ function TS_Registry.SeedKnownSpells()
 
     local D = TS_Registry.DESIGNATION
 
-
+    -- Synthetic designations are architectural. They stay here, not in Seeds files.
     TS_Registry.syntheticDesignations[61295] = {
         auraSpellID = 61295,
         tickSpellName = "Riptide",
@@ -116,6 +116,7 @@ function TS_Registry.SeedKnownSpells()
         featureFlag = "TRUESTRIKE_SYNTHETIC_TOTEM_SLOTS",
     }
 
+    -- Legacy baseline registrations. Seeds files will overwrite these on SHAMAN.
     TS_Registry.RegisterSpell(77472, "Healing Wave", D.HEAL)
     TS_Registry.RegisterSpell(77451, "Greater Healing Wave", D.HEAL)
     TS_Registry.RegisterSpell(383648, "Earth Shield", D.PROC)
@@ -126,4 +127,17 @@ function TS_Registry.SeedKnownSpells()
     TS_Registry.RegisterSpell(51945, "Earthliving", D.PROC)
     TS_Registry.RegisterSpell(61295, "Riptide", D.HOT)
 
+    -- Class-specific seed dispatcher.
+    -- Detects player class and calls the appropriate Seeds file function.
+    -- Seeds files must be loaded before Parser/ files in TrueStrike.toc.
+    local _, playerClass = UnitClassBase("player")
+    if playerClass == "SHAMAN" then
+        if TS_Registry.SeedShaman then
+            TS_Registry.SeedShaman()
+        end
+    end
+    -- SeedRacials is defined but is a no-op until empirically confirmed.
+    if TS_Registry.SeedRacials then
+        TS_Registry.SeedRacials()
+    end
 end
