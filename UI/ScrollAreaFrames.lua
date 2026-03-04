@@ -540,8 +540,7 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
     local duration = baseDuration / (area.animSpeed or 1.0)
 
     -- Create parent frame for this area
-    local parentKey =
-        string.format("test_%.0f_%.0f", area.xOffset, area.yOffset)
+    local parentKey = scrollAreaName
 
     if not TSBT._testParentFrames then TSBT._testParentFrames = {} end
 
@@ -558,57 +557,39 @@ function TSBT.DisplayHealWithSecret(scrollAreaName, prefix, secretAmount, color,
     parent:SetPoint("CENTER", UIParent, "CENTER", area.xOffset, area.yOffset)
     parent:Show()
 
-    -- Dynamic stacking: track active entries and their current positions
-    -- New entries start behind the entry closest to origin with proper spacing
+    -- Stacking: only offset new entries if another arrived very recently (within 0.4s).
+    -- HoT ticks and slow spell sequences start fresh from the origin edge.
     if not parent._activeEntries then parent._activeEntries = {} end
 
-    -- Spacing to maintain between entries (accounts for crit scaling 1.3x, icons, and timing margin)
-    -- Using 2x font size + generous padding for reliable separation
     local slotSpacing = (fontSize * 2) + 16
     local totalDistance = area.height
     local now = GetTime()
-
-    -- Find the entry with the lowest Y position (for scroll up) or highest (for scroll down)
-    -- New entry starts behind that with proper spacing
     local stackOffset = 0
 
-    if #parent._activeEntries > 0 then
-        -- For scroll UP (dirMult=1): find minimum Y position (closest to bottom)
-        -- For scroll DOWN (dirMult=-1): find maximum Y position (closest to top)
-        local tailPosition = nil -- Position of the "last" entry in the scroll direction
-
-        for _, entry in ipairs(parent._activeEntries) do
-            -- Calculate this entry's CURRENT position
-            local elapsed = now - entry.startTime
-            local progress = math.min(elapsed / entry.duration, 1.0)
-            local distanceTraveled = entry.totalDistance * progress
-            local currentY = entry.startOffset +
-                                 (distanceTraveled * entry.dirMult)
-
-            if tailPosition == nil then
-                tailPosition = currentY
-            elseif dirMult > 0 then
-                -- Scroll UP: find minimum Y (entry closest to bottom/origin)
-                tailPosition = math.min(tailPosition, currentY)
-            else
-                -- Scroll DOWN: find maximum Y (entry closest to top/origin)
-                tailPosition = math.max(tailPosition, currentY)
-            end
-        end
-
-        -- New entry starts behind the tail with slotSpacing gap
-        if tailPosition ~= nil then
-            -- For scroll UP: new entry at tailPosition - slotSpacing (below the tail)
-            -- For scroll DOWN: new entry at tailPosition + slotSpacing (above the tail)
-            stackOffset = tailPosition - (slotSpacing * dirMult)
+    -- Find the most recently added entry
+    local newestEntry = nil
+    for _, entry in ipairs(parent._activeEntries) do
+        if newestEntry == nil or entry.startTime > newestEntry.startTime then
+            newestEntry = entry
         end
     end
 
-    -- Clamp stackOffset so entries never start outside the scroll area bounds
-    if dirMult > 0 then
-        stackOffset = math.max(-area.height, stackOffset)
-    else
-        stackOffset = math.min(area.height, stackOffset)
+    -- Only stack if the newest entry arrived within the burst window (0.4s)
+    -- This handles simultaneous multi-hit events without affecting periodic ticks
+    if newestEntry and (now - newestEntry.startTime) < 0.4 then
+        local elapsed = now - newestEntry.startTime
+        local progress = math.min(elapsed / newestEntry.duration, 1.0)
+        local distanceTraveled = newestEntry.totalDistance * progress
+        local tailPosition = newestEntry.startOffset +
+                                 (distanceTraveled * newestEntry.dirMult)
+        stackOffset = tailPosition - (slotSpacing * dirMult)
+
+        -- Hard clamp: never start more than one slot below origin edge
+        if dirMult > 0 then
+            stackOffset = math.max(-slotSpacing, stackOffset)
+        else
+            stackOffset = math.min(slotSpacing, stackOffset)
+        end
     end
 
     -- Register this entry for tracking
