@@ -205,14 +205,24 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
          Feature flag:        TRUESTRIKE_INCOMING_HEAL_PROBE = false
     --]]
 
-    local auraSnapshot = TS_AuraScanner.SnapshotAllWatchedUnits()
     local lastSucceededID, lastSucceededTime = TS_CastAnchor.GetLastSucceeded()
     local lastSentID, lastSentTime = TS_CastAnchor.GetLastSent()
 
-    -- Prefer SUCCEEDED anchor if available. Fall back to SENT anchor so CTU
-    -- events that fire before SUCCEEDED (cast-time spells) can still attribute.
-    local lastSpellID = lastSucceededID or lastSentID
-    local lastSpellTime = lastSucceededTime or lastSentTime
+    -- For direct heals and damage only: fall back to SENT anchor when CTU fires
+    -- before SUCCEEDED (cast-time spells). PERIODIC events must never use this
+    -- fallback -- they attribute via slot manager only.
+    local isDirectEvent =
+        ctuType == "HEAL" or ctuType == "HEAL_CRIT" or ctuType == "SPELL_DAMAGE" or
+            ctuType == "SPELL_DAMAGE_CRIT"
+
+    local lastSpellID, lastSpellTime
+    if isDirectEvent then
+        lastSpellID = lastSucceededID or lastSentID
+        lastSpellTime = lastSucceededTime or lastSentTime
+    else
+        lastSpellID = lastSucceededID
+        lastSpellTime = lastSucceededTime
+    end
 
     local slotID, confidence, matchedSpellID =
         TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID,
@@ -269,10 +279,19 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     })
 
     local resolvedSpellID = nil
-    if type(lastSpellID) == "number" and lastSpellID > 0 then
-        resolvedSpellID = lastSpellID
-    elseif type(matchedSpellID) == "number" and matchedSpellID > 0 then
-        resolvedSpellID = matchedSpellID
+    if ctuType == "PERIODIC_HEAL" or ctuType == "PERIODIC_HEAL_CRIT" or ctuType ==
+        "PERIODIC_DAMAGE" or ctuType == "PERIODIC_DAMAGE_CRIT" then
+        -- Periodic events: slot manager match only. Never use cast anchor.
+        if type(matchedSpellID) == "number" and matchedSpellID > 0 then
+            resolvedSpellID = matchedSpellID
+        end
+    else
+        -- Direct events: prefer cast anchor, fall back to slot match.
+        if type(lastSpellID) == "number" and lastSpellID > 0 then
+            resolvedSpellID = lastSpellID
+        elseif type(matchedSpellID) == "number" and matchedSpellID > 0 then
+            resolvedSpellID = matchedSpellID
+        end
     end
 
     if TSBT.PipelineDiag then
