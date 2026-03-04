@@ -206,7 +206,14 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     --]]
 
     local auraSnapshot = TS_AuraScanner.SnapshotAllWatchedUnits()
-    local lastSpellID, lastSpellTime = TS_CastAnchor.GetLastSucceeded()
+    local lastSucceededID, lastSucceededTime = TS_CastAnchor.GetLastSucceeded()
+    local lastSentID, lastSentTime = TS_CastAnchor.GetLastSent()
+
+    -- Prefer SUCCEEDED anchor if available. Fall back to SENT anchor so CTU
+    -- events that fire before SUCCEEDED (cast-time spells) can still attribute.
+    local lastSpellID = lastSucceededID or lastSentID
+    local lastSpellTime = lastSucceededTime or lastSentTime
+
     local slotID, confidence, matchedSpellID =
         TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID,
                                    lastSpellTime)
