@@ -100,3 +100,5 @@ All flags live in Parser/TS_DesigConfig.lua. Current defaults:
 - 0.3.4-alpha: Wired DisplayHealWithSecret into live heal pipeline; fixed Riptide initial heal canRoute; switched spellcast events to RegisterUnitEvent.
 - 0.3.10-alpha: Added Shaman and deferred racial seed modules, wired class-seeded registry dispatch, fixed CTU aura snapshot and SENT proc fallback, and updated Seeds load order/version sync.
 - 0.3.13-alpha: Removed HEAL/HEAL_CRIT canRoute designation filter in TS_CTURouter so valid proc-heal CTU events (e.g. Ancestral Awakening/Earth Shield) display while resolvedSpellID continues to control icon/name attribution.
+
+- 0.3.14-alpha: Updated TS_CTURouter HEAL/HEAL_CRIT canRoute logic to allow anchor-less proc heal display, with a flagged note documenting unresolved SpellID enrichment for no-anchor CTU heals.

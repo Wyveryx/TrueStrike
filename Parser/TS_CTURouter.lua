@@ -249,13 +249,32 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
 
     elseif (ctuType == "HEAL" or ctuType == "HEAL_CRIT") and lastSpellID and
         lastSpellTime and (GetTime() - lastSpellTime) < 2.0 then
-        -- Direct heal display gate uses recent anchor presence only.
-        -- Designation filtering was removed because proc heals (e.g. AA, Earth Shield)
-        -- produce valid HEAL CTU events and must display.
-        -- resolvedSpellID below controls icon/name attribution, not canRoute.
+        -- Anchored path: cast anchor present, use for enrichment.
+        local anchorDesig = TS_Registry.GetDesignation(lastSpellID)
+        if anchorDesig == "Heal" or anchorDesig == "HoT" or anchorDesig == "Proc" then
+            canRoute = true
+            slotID = tostring(lastSpellID)
+            confidence = "ANCHOR"
+        end
+
+    --[[ FLAGGED: Proc heal SpellID resolution
+         Why flagged:         AA (382311) and similar proc heals have no cast anchor,
+                              no persistent aura, and no SpellID in the CTU payload.
+                              GetCurrentCombatTextEventInfo() confirmed: data=playerName,
+                              arg3=secret amount. No SpellID resolvable.
+         Evidence gap:        No probe session has found a correlation path for AA SpellID.
+         Acceptance criteria: A future probe session identifies a SpellID source for
+                              anchor-less proc heals.
+         Default behavior:    Display number only. resolvedSpellID = nil. No icon, no name.
+         Feature flag:        None — display-without-enrichment is correct behavior.
+    --]]
+    elseif (ctuType == "HEAL" or ctuType == "HEAL_CRIT") then
+        -- No anchor. Proc heal (e.g. Ancestral Awakening 382311) or unattributed direct heal.
+        -- CTU type is the designation. Show the number. No icon, no name.
+        -- A missing icon is acceptable. A dropped event is not.
         canRoute = true
-        slotID = tostring(lastSpellID) -- string only, for logging
-        confidence = "ANCHOR"
+        slotID = "proc_unattributed"
+        confidence = "LOW"
 
     elseif (ctuType == "SPELL_DAMAGE" or ctuType == "SPELL_DAMAGE_CRIT") and
         lastSpellID and lastSpellTime and (GetTime() - lastSpellTime) < 2.0 and
