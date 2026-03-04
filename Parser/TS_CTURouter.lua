@@ -23,7 +23,7 @@ local _ignorable = {
     RESIST = true,
 }
 
-local function RouteToDisplay(ctuType, valueStr)
+local function RouteToDisplay(ctuType, valueStr, spellID, isCrit, arg3_secret)
     local profile = TSBT.db and TSBT.db.profile
     if not profile then
         return
@@ -77,6 +77,19 @@ local function RouteToDisplay(ctuType, valueStr)
     -- Secret value already converted via TS_Taint.SafeStr before
     -- this point. valueStr is display-safe. Do not unwrap further.
     local ok, err = pcall(function()
+        if family == "Heal" or family == "HoT" then
+            local meta = { isCrit = isCrit or false }
+            if type(spellID) == "number" and spellID > 0 then
+                local infoOK, info = pcall(C_Spell.GetSpellInfo, spellID)
+                if infoOK and type(info) == "table" then
+                    meta.spellName = info.name
+                    meta.spellIcon = info.iconID
+                end
+            end
+            TSBT.DisplayHealWithSecret(areaName, "", arg3_secret, nil, meta)
+            return
+        end
+
         TSBT.DisplayText(areaName, valueStr)
     end)
     if not ok then
@@ -111,7 +124,7 @@ function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpel
         if TS_Registry.GetDesignation(lastSpellID) == expectedDesig then
             local slot = TS_SlotManager.FindHotSlot(lastSpellID, "player")
             if slot then
-                return slot.slotID, "HIGH"
+                return slot.slotID, "HIGH", slot.spellID
             end
         end
     end
@@ -132,7 +145,7 @@ function TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpel
                 confidence = confidence,
                 deltaPrev = 0,
             })
-            return slot.slotID, confidence
+            return slot.slotID, confidence, slot.spellID
         end
     end
 
@@ -148,6 +161,10 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     -- GetCurrentCombatTextEventInfo() is the correct global. Verified in-game 2026.
     local _, arg3 = GetCurrentCombatTextEventInfo()
     local valueStr = TS_Taint.SafeStr(arg3)
+    local isCrit = ctuType == "HEAL_CRIT"
+        or ctuType == "PERIODIC_HEAL_CRIT"
+        or ctuType == "SPELL_DAMAGE_CRIT"
+        or ctuType == "PERIODIC_DAMAGE_CRIT"
 
     --[[ DISPROVEN: Arithmetic on CTU secret values
          Do not implement. Reason: CTU value must be treated as opaque in WoW 12.0.1.
@@ -198,7 +215,7 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
 
     local auraSnapshot = TS_AuraScanner.SnapshotAllWatchedUnits()
     local lastSpellID, lastSpellTime = TS_CastAnchor.GetLastSucceeded()
-    local slotID, confidence = TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpellTime)
+    local slotID, confidence, matchedSpellID = TS_CTURouter.AttributeTick(ctuType, auraSnapshot, lastSpellID, lastSpellTime)
 
     -- Determine whether this event can route to display.
     -- AttributeTick() handles HoTs and close-window anchored spells.
@@ -214,14 +231,17 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
     elseif (ctuType == "HEAL" or ctuType == "HEAL_CRIT")
         and lastSpellID
         and lastSpellTime
-        and (GetTime() - lastSpellTime) < 2.0
-        and TS_Registry.GetDesignation(lastSpellID) == "Heal" then
-        -- Direct heal attributed via recent cast anchor (wider 2.0s window).
-        -- CTU fires before UNIT_SPELLCAST_SUCCEEDED for cast-time spells,
-        -- so the 0.150s promotion window is too tight for this path.
-        canRoute = true
-        slotID = tostring(lastSpellID)   -- string only, for logging
-        confidence = "ANCHOR"
+        and (GetTime() - lastSpellTime) < 2.0 then
+        local anchorDesig = TS_Registry.GetDesignation(lastSpellID)
+        if anchorDesig == "Heal" or anchorDesig == "HoT" then
+            -- Direct heal attributed via recent cast anchor (wider 2.0s window).
+            -- CTU fires before UNIT_SPELLCAST_SUCCEEDED for cast-time spells,
+            -- so the 0.150s promotion window is too tight for this path.
+            -- HoT spells (e.g. Riptide 61295) fire an initial HEAL event before their ticks begin.
+            canRoute = true
+            slotID = tostring(lastSpellID)   -- string only, for logging
+            confidence = "ANCHOR"
+        end
 
     elseif (ctuType == "SPELL_DAMAGE" or ctuType == "SPELL_DAMAGE_CRIT")
         and lastSpellID
@@ -251,7 +271,14 @@ function TS_CTURouter.OnCombatTextUpdate(ctuType)
         confidence = confidence,
     })
 
+    local resolvedSpellID = nil
+    if type(lastSpellID) == "number" and lastSpellID > 0 then
+        resolvedSpellID = lastSpellID
+    elseif type(matchedSpellID) == "number" and matchedSpellID > 0 then
+        resolvedSpellID = matchedSpellID
+    end
+
     if canRoute then
-        RouteToDisplay(ctuType, valueStr)
+        RouteToDisplay(ctuType, valueStr, resolvedSpellID, isCrit, arg3)
     end
 end
